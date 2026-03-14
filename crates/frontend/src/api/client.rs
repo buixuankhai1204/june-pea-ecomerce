@@ -1,14 +1,18 @@
 pub use crate::api::types::*;
+use dotenv::dotenv;
 use gloo_net::http::{Request, RequestBuilder};
 use gloo_storage::{LocalStorage, Storage};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::env;
 use uuid::Uuid;
 
 const TOKEN_KEY: &str = "june_pea_token";
 
 fn base_url() -> String {
-    "".to_string()
+    dotenv().ok();
+    let base_url = env::var("API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    format!("{}", base_url)
 }
 
 pub fn get_token() -> Option<String> {
@@ -240,7 +244,9 @@ pub mod marketing {
         delete::<bool>(&format!("/api/v1/marketing/coupons/{}", code)).await
     }
 
-    pub async fn validate_coupon(req: ValidateCouponRequest) -> Result<ValidateCouponResponse, ApiError> {
+    pub async fn validate_coupon(
+        req: ValidateCouponRequest,
+    ) -> Result<ValidateCouponResponse, ApiError> {
         post("/api/v1/marketing/coupons/validate", &req).await
     }
 }
