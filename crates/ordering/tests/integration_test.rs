@@ -20,7 +20,7 @@ use ordering::{
     infrastructure::persistence::postgres::PostgresOrderRepository,
     usecase::{
         cancel_order::CancelOrderUsecase, get_order::GetOrderUsecase,
-        list_orders::ListOrdersUsecase, place_order::PlaceOrderUsecase,
+        place_order::PlaceOrderUsecase,
         update_order_status::UpdateOrderStatusUsecase,
     },
 };
@@ -35,7 +35,6 @@ struct TestContext {
     place_order: PlaceOrderUsecase,
     cancel_order: CancelOrderUsecase,
     get_order: GetOrderUsecase,
-    list_orders: ListOrdersUsecase,
     update_order_status: UpdateOrderStatusUsecase,
 }
 
@@ -48,7 +47,6 @@ impl TestContext {
             place_order: PlaceOrderUsecase::new(repo.clone(), uow.clone()),
             cancel_order: CancelOrderUsecase::new(repo.clone(), uow.clone()),
             get_order: GetOrderUsecase::new(repo.clone(), uow.clone()),
-            list_orders: ListOrdersUsecase::new(repo.clone(), uow.clone()),
             update_order_status: UpdateOrderStatusUsecase::new(repo, uow),
         }
     }

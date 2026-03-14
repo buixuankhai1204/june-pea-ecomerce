@@ -3,7 +3,6 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use marketing::{
-    domain::model::Coupon,
     infrastructure::postgres::PostgresCouponRepository,
     usecase::{
         create_coupon::CreateCouponUsecase,
@@ -38,7 +37,7 @@ async fn e2e_create_coupon_persists_in_db(pool: PgPool) {
     let code = "TEST20".to_string();
     let discount = 2000;
     
-    let coupon = ctx.create_coupon.execute(code.clone(), discount, 10).await.unwrap();
+    let _coupon = ctx.create_coupon.execute(code.clone(), discount, 10).await.unwrap();
 
     let mut tx = pool.begin().await.unwrap();
     let row = sqlx::query("SELECT discount_amount FROM marketing.coupons WHERE code = $1")
@@ -77,7 +76,7 @@ async fn e2e_delete_coupon_works(pool: PgPool) {
     let code = format!("DELETE-{}", Uuid::new_v4());
     
     // 1. Create
-    let coupon = ctx.create_coupon.execute(code.clone(), 5000, 1).await.unwrap();
+    let _coupon = ctx.create_coupon.execute(code.clone(), 5000, 1).await.unwrap();
 
     // 2. Delete
     ctx.delete_coupon.execute(&code).await.unwrap();

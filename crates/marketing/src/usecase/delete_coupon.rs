@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use uuid::Uuid;
 use shared::{database::UnitOfWork, error::AppError};
 use crate::domain::repository::CouponRepository;
 

@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
 use identify::{
-    domain::{model::User, user_repository::UserRepository},
+    domain::user_repository::UserRepository,
     infrastructure::persistence::postgres::PostgresUserRepository,
     usecase::{
         auth::AuthUsecase,
