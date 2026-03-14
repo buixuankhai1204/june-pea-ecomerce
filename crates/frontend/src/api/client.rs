@@ -11,7 +11,8 @@ const TOKEN_KEY: &str = "june_pea_token";
 
 fn base_url() -> String {
     dotenv().ok();
-    let base_url = env::var("API_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let base_url = env::var("API_URL")
+        .unwrap_or_else(|_| "https://june-pea-backend-production.up.railway.app".to_string());
     format!("{}", base_url)
 }
 
