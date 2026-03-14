@@ -109,10 +109,10 @@ pub struct CreateProductRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateProductRequest {
-    pub name: Option<String>,
+    pub name: String,
     pub slug: Option<String>,
     pub description: Option<String>,
-    pub category_id: Option<Uuid>,
+    pub category_id: Uuid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +121,25 @@ pub struct PaginatedProducts {
     pub total: i64,
     pub page: i64,
     pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVariantRequest {
+    pub product_id: Uuid,
+    pub sku: String,
+    pub name: String,
+    pub base_price: Decimal,
+    pub sale_price: Option<Decimal>,
+    pub attributes: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateVariantRequest {
+    pub sku: String,
+    pub name: String,
+    pub base_price: Decimal,
+    pub sale_price: Option<Decimal>,
+    pub attributes: serde_json::Value,
 }
 
 // ─── Ordering ──────────────────────────────────────────────

@@ -37,3 +37,11 @@ pub struct PaginatedProducts {
     pub page: i64,
     pub page_size: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow, PartialEq)]
+pub struct Category {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub parent_id: Option<Uuid>,
+}

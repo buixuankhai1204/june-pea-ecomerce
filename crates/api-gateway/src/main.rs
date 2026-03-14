@@ -70,13 +70,6 @@ async fn main() -> anyhow::Result<()> {
         postgrese_unit_of_work.clone(),
     ));
 
-    // Catalog
-    let delete_product = Arc::new(catalog::usecase::delete_product::DeleteProductUsecase::new(
-        catalog_repo.clone(),
-    ));
-    let delete_category = Arc::new(catalog::usecase::delete_category::DeleteCategoryUsecase::new(
-        catalog_repo.clone(),
-    ));
     let catalog_usecases = Arc::new(CatalogUsecase::new(
         catalog_repo,
         redis,

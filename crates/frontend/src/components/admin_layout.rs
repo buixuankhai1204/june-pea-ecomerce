@@ -159,8 +159,10 @@ fn nav_icon(id: u8) -> impl IntoView {
 pub fn AdminLayout(children: Children) -> impl IntoView {
     let main_nav: Vec<NavItem> = vec![
         NavItem { label: "Dashboard",          href: "/admin",          icon: 0 },
+        NavItem { label: "Product Catalog",    href: "/admin/catalog",  icon: 1 },
+        NavItem { label: "Categories",         href: "/admin/categories", icon: 5 },
+        NavItem { label: "Inventory & Stock",  href: "/admin/stock",    icon: 2 },
         NavItem { label: "Orders",             href: "/admin/orders",   icon: 1 },
-        NavItem { label: "Suppliers",          href: "/admin/suppliers",icon: 2 },
         NavItem { label: "Staff Management",   href: "/admin/staff",    icon: 3 },
         NavItem { label: "Payment & Invoices", href: "/admin/payments", icon: 4 },
     ];

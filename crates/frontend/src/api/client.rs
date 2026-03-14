@@ -8,7 +8,7 @@ use uuid::Uuid;
 const TOKEN_KEY: &str = "june_pea_token";
 
 fn base_url() -> String {
-    "http://localhost:3000".to_string()
+    "".to_string()
 }
 
 pub fn get_token() -> Option<String> {
@@ -144,6 +144,10 @@ pub mod catalog {
         get(&format!("/api/v1/catalog/products/slug/{}", slug)).await
     }
 
+    pub async fn get_product_by_id(id: Uuid) -> Result<ProductWithVariants, ApiError> {
+        get(&format!("/api/v1/catalog/products/{}", id)).await
+    }
+
     pub async fn list_categories() -> Result<Vec<Category>, ApiError> {
         get("/api/v1/catalog/categories").await
     }
@@ -166,6 +170,18 @@ pub mod catalog {
 
     pub async fn delete_category(id: Uuid) -> Result<bool, ApiError> {
         delete::<bool>(&format!("/api/v1/catalog/categories/{}", id)).await
+    }
+
+    pub async fn create_variant(req: CreateVariantRequest) -> Result<Uuid, ApiError> {
+        post::<Uuid, _>("/api/v1/catalog/variants", &req).await
+    }
+
+    pub async fn update_variant(id: Uuid, req: UpdateVariantRequest) -> Result<bool, ApiError> {
+        patch::<bool, _>(&format!("/api/v1/catalog/variants/{}", id), &req).await
+    }
+
+    pub async fn delete_variant(id: Uuid) -> Result<bool, ApiError> {
+        delete::<bool>(&format!("/api/v1/catalog/variants/{}", id)).await
     }
 }
 

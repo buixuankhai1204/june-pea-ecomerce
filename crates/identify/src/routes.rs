@@ -28,8 +28,7 @@ where
     Router::new()
         .route("/register", post(register_handler::<S>))
         .route("/login", post(login_handler::<S>))
-        .route("/me", axum::routing::get(get_me_handler::<S>))
-        .route("/me", axum::routing::patch(update_profile_handler::<S>))
+        .route("/me", axum::routing::get(get_me_handler::<S>).patch(update_profile_handler::<S>))
         .route("/users", axum::routing::get(list_users_handler::<S>))
 }
 

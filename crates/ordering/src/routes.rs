@@ -70,10 +70,8 @@ impl OrderingUsecase {
 
 pub fn init() -> Router<OrderingUsecase> {
     Router::new()
-        .route("/orders", post(place_order_handler))
-        .route("/orders", get(list_all_orders_handler))
-        .route("/orders/{id}", get(get_order_handler))
-        .route("/orders/{id}", delete(cancel_order_handler))
+        .route("/orders", post(place_order_handler).get(list_all_orders_handler))
+        .route("/orders/{id}", get(get_order_handler).delete(cancel_order_handler))
         .route("/orders/{id}/status", axum::routing::patch(update_order_status_handler))
         .route("/orders/customer/{customer_id}", get(list_orders_handler))
 }
