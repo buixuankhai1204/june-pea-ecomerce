@@ -1,3 +1,4 @@
+use axum::http::HeaderValue;
 use axum::Router;
 use catalog::infrastructure::cache::redis::RedisCatalogCache;
 use catalog::infrastructure::persistence::postgres::PostgresCatalogRepository;
@@ -32,13 +33,21 @@ impl IdentityState for AppState {
         self.auth_service.clone()
     }
     fn get_me_usecase(&self) -> Arc<identify::usecase::get_me::GetMeUsecase> {
-        Arc::new(identify::usecase::get_me::GetMeUsecase::new(self.user_repo.clone()))
+        Arc::new(identify::usecase::get_me::GetMeUsecase::new(
+            self.user_repo.clone(),
+        ))
     }
-    fn update_profile_usecase(&self) -> Arc<identify::usecase::update_profile::UpdateProfileUsecase> {
-        Arc::new(identify::usecase::update_profile::UpdateProfileUsecase::new(self.user_repo.clone()))
+    fn update_profile_usecase(
+        &self,
+    ) -> Arc<identify::usecase::update_profile::UpdateProfileUsecase> {
+        Arc::new(
+            identify::usecase::update_profile::UpdateProfileUsecase::new(self.user_repo.clone()),
+        )
     }
     fn list_users_usecase(&self) -> Arc<identify::usecase::list_users::ListUsersUsecase> {
-        Arc::new(identify::usecase::list_users::ListUsersUsecase::new(self.user_repo.clone()))
+        Arc::new(identify::usecase::list_users::ListUsersUsecase::new(
+            self.user_repo.clone(),
+        ))
     }
 }
 
@@ -57,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     print!("Connecting to Redis at {}... ", redis_url);
 
     let user_repo = Arc::new(PostgresUserRepository::new(Arc::new(pool.clone())));
-    let catalog_repo = Arc::new(PostgresCatalogRepository::new(Arc::new(pool.clone()))); 
+    let catalog_repo = Arc::new(PostgresCatalogRepository::new(Arc::new(pool.clone())));
     let auth_usecases = Arc::new(AuthUsecase::new(user_repo.clone()));
     let redis = Arc::new(RedisCatalogCache::new(&redis_url).await?);
     let postgrese_unit_of_work = Arc::new(
@@ -70,10 +79,7 @@ async fn main() -> anyhow::Result<()> {
         postgrese_unit_of_work.clone(),
     ));
 
-    let catalog_usecases = Arc::new(CatalogUsecase::new(
-        catalog_repo,
-        redis,
-    ));
+    let catalog_usecases = Arc::new(CatalogUsecase::new(catalog_repo, redis));
 
     // Marketing
     let marketing_repo =
@@ -130,14 +136,18 @@ async fn main() -> anyhow::Result<()> {
         ordering_repo.clone(),
         postgrese_unit_of_work.clone(),
     ));
-    let list_all_orders = Arc::new(ordering::usecase::list_all_orders::ListAllOrdersUsecase::new(
-        ordering_repo.clone(),
-        postgrese_unit_of_work.clone(),
-    ));
-    let update_order_status = Arc::new(ordering::usecase::update_order_status::UpdateOrderStatusUsecase::new(
-        ordering_repo.clone(),
-        postgrese_unit_of_work.clone(),
-    ));
+    let list_all_orders = Arc::new(
+        ordering::usecase::list_all_orders::ListAllOrdersUsecase::new(
+            ordering_repo.clone(),
+            postgrese_unit_of_work.clone(),
+        ),
+    );
+    let update_order_status = Arc::new(
+        ordering::usecase::update_order_status::UpdateOrderStatusUsecase::new(
+            ordering_repo.clone(),
+            postgrese_unit_of_work.clone(),
+        ),
+    );
     let ordering_usecases = Arc::new(ordering::routes::OrderingUsecase::new(
         place_order,
         cancel_order,
@@ -146,7 +156,6 @@ async fn main() -> anyhow::Result<()> {
         update_order_status,
         list_all_orders,
     ));
-
 
     let marketing_router =
         marketing::routes::init().with_state(marketing_usecases.as_ref().clone());
@@ -191,7 +200,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(
             tower_http::cors::CorsLayer::new()
-                .allow_origin(tower_http::cors::Any)
+                .allow_origin(
+                    "https://eloquent-patience-production.up.railway.app"
+                        .parse::<HeaderValue>()
+                        .unwrap(),
+                )
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,
@@ -206,10 +219,11 @@ async fn main() -> anyhow::Result<()> {
                     axum::http::header::ACCEPT,
                 ]),
         )
-        .with_state(state); 
+        .with_state(state);
 
-    let addr = "0.0.0.0:3000";
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(addr.clone()).await?;
     tracing::info!("🚀 Yame Ecommerce Core started at {}", addr);
     axum::serve(listener, app).await?;
 
