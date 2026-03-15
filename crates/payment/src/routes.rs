@@ -89,9 +89,19 @@ async fn vnpay_ipn_handler(
     let params = match query {
         Some(q) => match from_str::<BTreeMap<String, String>>(&q) {
             Ok(map) => map,
-            Err(_) => return (StatusCode::OK, Json(IpnResponseBody::error("99", "Invalid query"))),
+            Err(_) => {
+                return (
+                    StatusCode::OK,
+                    Json(IpnResponseBody::error("99", "Invalid query")),
+                )
+            }
         },
-        None => return (StatusCode::OK, Json(IpnResponseBody::error("99", "Missing query"))),
+        None => {
+            return (
+                StatusCode::OK,
+                Json(IpnResponseBody::error("99", "Missing query")),
+            )
+        }
     };
 
     match state.handle_vnpay_ipn().execute(params).await {

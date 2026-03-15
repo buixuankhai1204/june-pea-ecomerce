@@ -4,6 +4,7 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client;
 use crate::api::types::{ApiError, ProductVariant, ProductWithVariants};
 use crate::state::cart::{CartItem, CartState};
+use rust_decimal::prelude::ToPrimitive;
 
 // ─── SVG Icons ─────────────────────────────────────────────────────────────
 
@@ -364,7 +365,7 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                                         variant_id: v.id,
                                                                         product_name: data.product.name.clone(),
                                                                         variant_name: v.name.clone(),
-                                                                        unit_price: price_dec.to_string().parse::<i64>().unwrap_or(0),
+                                                                        unit_price: price_dec.to_i64().unwrap_or(0),
                                                                         quantity: quantity.get(),
                                                                     });
                                                                 }

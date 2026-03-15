@@ -1,19 +1,50 @@
 pub use crate::api::types::*;
+#[cfg(not(target_arch = "wasm32"))]
 use dotenv::dotenv;
 use gloo_net::http::{Request, RequestBuilder};
 use gloo_storage::{LocalStorage, Storage};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+#[cfg(not(target_arch = "wasm32"))]
 use std::env;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::OnceLock;
 use uuid::Uuid;
 
 const TOKEN_KEY: &str = "june_pea_token";
+const DEFAULT_BASE_URL: &str = "https://june-pea-backend-production.up.railway.app";
 
 fn base_url() -> String {
-    dotenv().ok();
-    let base_url = env::var("API_URL")
-        .unwrap_or_else(|_| "https://june-pea-backend-production.up.railway.app".to_string());
-    format!("{}", base_url)
+    let resolved = resolve_base_url_impl();
+    println!("Using base url: {}", resolved);
+    resolved
+}
+
+#[cfg(target_arch = "wasm32")]
+fn resolve_base_url_impl() -> String {
+    option_env!("API_URL")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn resolve_base_url_impl() -> String {
+    static DOTENV_ONCE: OnceLock<()> = OnceLock::new();
+    DOTENV_ONCE.get_or_init(|| {
+        let _ = dotenv();
+    });
+
+    env::var("API_URL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            option_env!("API_URL")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string())
 }
 
 pub fn get_token() -> Option<String> {
@@ -249,5 +280,29 @@ pub mod marketing {
         req: ValidateCouponRequest,
     ) -> Result<ValidateCouponResponse, ApiError> {
         post("/api/v1/marketing/coupons/validate", &req).await
+    }
+}
+
+pub mod payment {
+    use super::*;
+
+    pub async fn create_vnpay_qr(req: CreateVnPayQrRequest) -> Result<PaymentIntentView, ApiError> {
+        post("/api/v1/payment/vnpay/qr", &req).await
+    }
+
+    pub async fn get_payment_status(order_id: Uuid) -> Result<PaymentIntentView, ApiError> {
+        get(&format!("/api/v1/payment/orders/{}", order_id)).await
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_env_variable_is_used_when_available() {
+        std::env::set_var("API_URL", "https://env.test");
+        assert_eq!(base_url(), "https://env.test");
+        std::env::remove_var("API_URL");
     }
 }

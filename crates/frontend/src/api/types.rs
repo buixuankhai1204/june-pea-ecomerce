@@ -189,6 +189,33 @@ pub struct PlaceOrderResponse {
     pub order_id: Uuid,
 }
 
+// ─── Payment ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PaymentStatus {
+    Pending,
+    Paid,
+    Failed,
+    Expired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentIntentView {
+    pub payment_id: Uuid,
+    pub order_id: Uuid,
+    pub amount: i64,
+    pub payment_url: String,
+    pub qr_svg: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub status: PaymentStatus,
+    pub txn_ref: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateVnPayQrRequest {
+    pub order_id: Uuid,
+}
+
 // ─── Marketing ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

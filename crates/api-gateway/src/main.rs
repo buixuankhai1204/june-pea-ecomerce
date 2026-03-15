@@ -246,6 +246,11 @@ async fn main() -> anyhow::Result<()> {
                         .parse::<HeaderValue>()
                         .unwrap(),
                 )
+                .allow_origin(
+                    "http://localhost:8080"
+                        .parse::<HeaderValue>()
+                        .unwrap(),
+                )
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,

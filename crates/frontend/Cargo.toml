@@ -2,6 +2,7 @@
 name = "frontend"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 leptos = { version = "0.7", features = ["csr"] }
@@ -24,3 +25,6 @@ log = "0.4"
 console_log = "1"
 getrandom = { version = "0.2", features = ["js"] }
 dotenv = "0.15"
+
+[build-dependencies]
+dotenvy = "0.15"
