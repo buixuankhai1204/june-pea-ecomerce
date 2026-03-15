@@ -1,9 +1,11 @@
-use leptos::prelude::*;
 use crate::api::client::catalog as catalog_api;
-use crate::api::types::{CreateProductRequest, UpdateProductRequest, Product, ProductWithVariants, CreateVariantRequest};
-use uuid::Uuid;
+use crate::api::types::{
+    CreateProductRequest, CreateVariantRequest, Product, ProductWithVariants, UpdateProductRequest,
+};
+use leptos::prelude::*;
 use rust_decimal::Decimal;
 use std::str::FromStr;
+use uuid::Uuid;
 
 fn icon_plus() -> impl IntoView {
     view! {
@@ -48,8 +50,9 @@ pub fn AdminProductsPage() -> impl IntoView {
     let (show_modal, set_show_modal) = signal(false);
     let (show_variants_modal, set_show_variants_modal) = signal(false);
     let (editing_product, set_editing_product) = signal::<Option<Product>>(None);
-    let (selected_product_for_variants, set_selected_product_for_variants) = signal::<Option<Product>>(None);
-    
+    let (selected_product_for_variants, set_selected_product_for_variants) =
+        signal::<Option<Product>>(None);
+
     // Product form fields
     let (name, set_name) = signal("".to_string());
     let (slug, set_slug) = signal("".to_string());
@@ -61,23 +64,29 @@ pub fn AdminProductsPage() -> impl IntoView {
     let (v_name, set_v_name) = signal("".to_string());
     let (v_price, set_v_price) = signal("".to_string());
 
-    let products_resource: LocalResource<Vec<crate::api::types::Product>> = LocalResource::new(move || {
-        async move { catalog_api::list_products(1, 100).await.map(|p| p.items).unwrap_or_default() }
-    });
+    let products_resource: LocalResource<Vec<crate::api::types::Product>> =
+        LocalResource::new(move || async move {
+            catalog_api::list_products(1, 100)
+                .await
+                .map(|p| p.items)
+                .unwrap_or_default()
+        });
 
-    let categories_resource: LocalResource<Vec<crate::api::types::Category>> = LocalResource::new(move || {
-        async move { catalog_api::list_categories().await.unwrap_or_default() }
-    });
+    let categories_resource: LocalResource<Vec<crate::api::types::Category>> =
+        LocalResource::new(move || async move {
+            catalog_api::list_categories().await.unwrap_or_default()
+        });
 
-    let variants_resource: LocalResource<Option<ProductWithVariants>> = LocalResource::new(move || {
-        let p = selected_product_for_variants.get();
-        async move {
-            match p {
-                Some(prod) => catalog_api::get_product_by_id(prod.id).await.ok(),
-                None => None
+    let variants_resource: LocalResource<Option<ProductWithVariants>> =
+        LocalResource::new(move || {
+            let p = selected_product_for_variants.get();
+            async move {
+                match p {
+                    Some(prod) => catalog_api::get_product_by_id(prod.id).await.ok(),
+                    None => None,
+                }
             }
-        }
-    });
+        });
 
     let create_action = Action::new_local(|req: &CreateProductRequest| {
         let req = req.clone();
@@ -110,14 +119,17 @@ pub fn AdminProductsPage() -> impl IntoView {
         if let Ok(c_id) = Uuid::parse_str(&category_id.get()) {
             let s = slug.get();
             let d = description.get();
-            
+
             if let Some(p) = editing_product.get() {
-                update_action.dispatch((p.id, UpdateProductRequest {
-                    name: name.get(),
-                    slug: if s.is_empty() { None } else { Some(s) },
-                    description: if d.is_empty() { None } else { Some(d) },
-                    category_id: c_id,
-                }));
+                update_action.dispatch((
+                    p.id,
+                    UpdateProductRequest {
+                        name: name.get(),
+                        slug: if s.is_empty() { None } else { Some(s) },
+                        description: if d.is_empty() { None } else { Some(d) },
+                        category_id: c_id,
+                    },
+                ));
             } else {
                 create_action.dispatch(CreateProductRequest {
                     name: name.get(),
@@ -186,7 +198,7 @@ pub fn AdminProductsPage() -> impl IntoView {
                     <h1 class="text-2xl font-black text-gray-900">"Products"</h1>
                     <p class="text-sm text-gray-400 mt-1">"Manage your product catalog and variants"</p>
                 </div>
-                <button 
+                <button
                     class="bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-yellow-200/50 flex items-center gap-2 cursor-pointer"
                     on:click=move |_| {
                         set_editing_product.set(None);
@@ -216,7 +228,7 @@ pub fn AdminProductsPage() -> impl IntoView {
                         <Suspense fallback=|| view! { <tr><td colspan="4" class="p-10 text-center text-gray-400">"Loading products..."</td></tr> }>
                             {move || products_resource.get().map(|list| {
                                 let categories = categories_resource.get().map(|s| (*s).clone()).unwrap_or_default();
-                                
+
                                 (*list).iter().map(|p| {
                                     let p_cloned = p.clone();
                                     let p_cloned_variant = p.clone();
@@ -241,7 +253,7 @@ pub fn AdminProductsPage() -> impl IntoView {
                                             </td>
                                             <td class="px-6 py-4 text-right">
                                                 <div class="flex justify-end gap-2">
-                                                    <button 
+                                                    <button
                                                         class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-1 text-[10px] font-black"
                                                         on:click=move |_| {
                                                             set_selected_product_for_variants.set(Some(p_cloned_variant.clone()));
@@ -250,13 +262,13 @@ pub fn AdminProductsPage() -> impl IntoView {
                                                     >
                                                         {icon_box()} "VAR"
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
                                                         on:click=move |_| set_editing_product.set(Some(p_cloned_edit.clone()))
                                                     >
                                                         {icon_edit()}
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
                                                         on:click=move |_| {
                                                             delete_action.dispatch(p_id);
@@ -289,9 +301,9 @@ pub fn AdminProductsPage() -> impl IntoView {
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Product Name"</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="e.g. Áo Thun Modal" 
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Áo Thun Modal"
                                         required
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                         on:input=move |ev| set_name.set(event_target_value(&ev))
@@ -300,9 +312,9 @@ pub fn AdminProductsPage() -> impl IntoView {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Slug (Optional)"</label>
-                                    <input 
-                                        type="text" 
-                                        placeholder="e.g. ao-thun-modal" 
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. ao-thun-modal"
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                         on:input=move |ev| set_slug.set(event_target_value(&ev))
                                         prop:value=slug
@@ -312,7 +324,7 @@ pub fn AdminProductsPage() -> impl IntoView {
 
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Category"</label>
-                                <select 
+                                <select
                                     required
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                     on:change=move |ev| set_category_id.set(event_target_value(&ev))
@@ -335,8 +347,8 @@ pub fn AdminProductsPage() -> impl IntoView {
 
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Description (Optional)"</label>
-                                <textarea 
-                                    placeholder="Tell more about this product..." 
+                                <textarea
+                                    placeholder="Tell more about this product..."
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm min-h-24"
                                     on:input=move |ev| set_description.set(event_target_value(&ev))
                                     prop:value=description
@@ -344,7 +356,7 @@ pub fn AdminProductsPage() -> impl IntoView {
                             </div>
 
                             <div class="flex gap-3 pt-4">
-                                <button 
+                                <button
                                     type="button"
                                     class="flex-1 px-6 py-3 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
                                     on:click=move |_| {
@@ -354,17 +366,17 @@ pub fn AdminProductsPage() -> impl IntoView {
                                 >
                                     "Cancel"
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled=move || create_action.pending().get() || update_action.pending().get()
                                     class="flex-1 px-6 py-3 rounded-2xl bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold transition-all shadow-lg shadow-yellow-200/50 cursor-pointer disabled:opacity-50"
                                 >
-                                    {move || if create_action.pending().get() || update_action.pending().get() { 
-                                        "Saving..." 
+                                    {move || if create_action.pending().get() || update_action.pending().get() {
+                                        "Saving..."
                                     } else if editing_product.get().is_some() {
                                         "Save Changes"
                                     } else {
-                                        "Create Product" 
+                                        "Create Product"
                                     }}
                                 </button>
                             </div>
@@ -428,7 +440,7 @@ pub fn AdminProductsPage() -> impl IntoView {
                                                                         </div>
                                                                         <div class="flex items-center gap-4">
                                                                             <div class="text-sm font-black text-gray-900">{"$"}{v.base_price.to_string()}</div>
-                                                                            <button 
+                                                                            <button
                                                                                 class="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
                                                                                 on:click=move |_| {
                                                                                     delete_variant_action.dispatch(v_id);

@@ -20,8 +20,7 @@ use ordering::{
     infrastructure::persistence::postgres::PostgresOrderRepository,
     usecase::{
         cancel_order::CancelOrderUsecase, get_order::GetOrderUsecase,
-        place_order::PlaceOrderUsecase,
-        update_order_status::UpdateOrderStatusUsecase,
+        place_order::PlaceOrderUsecase, update_order_status::UpdateOrderStatusUsecase,
     },
 };
 use shared::{error::AppError, infrastructure::postgres::PostgresUnitOfWork};
@@ -249,7 +248,10 @@ async fn e2e_cancel_pending_order_sets_cancelled_status(pool: PgPool) {
     assert_eq!(fetched.status, OrderStatus::Cancelled);
 
     // 4. Update to Completed
-    ctx.update_order_status.execute(order_id, OrderStatus::Completed).await.unwrap();
+    ctx.update_order_status
+        .execute(order_id, OrderStatus::Completed)
+        .await
+        .unwrap();
     let fetched = ctx.get_order.execute(order_id).await.unwrap();
     assert_eq!(fetched.status, OrderStatus::Completed);
 }

@@ -5,9 +5,8 @@ use uuid::Uuid;
 use marketing::{
     infrastructure::postgres::PostgresCouponRepository,
     usecase::{
-        create_coupon::CreateCouponUsecase,
+        create_coupon::CreateCouponUsecase, delete_coupon::DeleteCouponUsecase,
         validate_coupon::ValidateCouponUsecase,
-        delete_coupon::DeleteCouponUsecase,
     },
 };
 use shared::{error::AppError, infrastructure::postgres::PostgresUnitOfWork};
@@ -36,8 +35,12 @@ async fn e2e_create_coupon_persists_in_db(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let code = "TEST20".to_string();
     let discount = 2000;
-    
-    let _coupon = ctx.create_coupon.execute(code.clone(), discount, 10).await.unwrap();
+
+    let _coupon = ctx
+        .create_coupon
+        .execute(code.clone(), discount, 10)
+        .await
+        .unwrap();
 
     let mut tx = pool.begin().await.unwrap();
     let row = sqlx::query("SELECT discount_amount FROM marketing.coupons WHERE code = $1")
@@ -54,9 +57,12 @@ async fn e2e_create_coupon_persists_in_db(pool: PgPool) {
 async fn e2e_validate_coupon_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let code = "TEST30".to_string();
-    
+
     // Create coupon
-    ctx.create_coupon.execute(code.clone(), 3000, 5).await.unwrap();
+    ctx.create_coupon
+        .execute(code.clone(), 3000, 5)
+        .await
+        .unwrap();
 
     // Validate coupon
     let coupon = ctx.validate_coupon.execute(&code).await.unwrap();
@@ -74,9 +80,13 @@ async fn e2e_validate_nonexistent_coupon_fails(pool: PgPool) {
 async fn e2e_delete_coupon_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let code = format!("DELETE-{}", Uuid::new_v4());
-    
+
     // 1. Create
-    let _coupon = ctx.create_coupon.execute(code.clone(), 5000, 1).await.unwrap();
+    let _coupon = ctx
+        .create_coupon
+        .execute(code.clone(), 5000, 1)
+        .await
+        .unwrap();
 
     // 2. Delete
     ctx.delete_coupon.execute(&code).await.unwrap();

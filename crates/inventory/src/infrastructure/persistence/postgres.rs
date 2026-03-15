@@ -10,19 +10,14 @@ use crate::domain::model::Stock;
 
 #[async_trait]
 impl InventoryRepository for PostgresInventoryRepository {
-    async fn get_stock(
-        &self,
-        exec: &mut dyn DbExecutor,
-        id: Uuid,
-    ) -> Result<i32, AppError> {
+    async fn get_stock(&self, exec: &mut dyn DbExecutor, id: Uuid) -> Result<i32, AppError> {
         let executor = SqlxExecutor::from_executor(exec);
 
-        let row =
-            sqlx::query("SELECT quantity FROM inventory.stock WHERE variant_id = $1")
-                .bind(id)
-                .fetch_optional(&mut *executor.tx)
-                .await
-                .map_err(|e| AppError::Database(e))?;
+        let row = sqlx::query("SELECT quantity FROM inventory.stock WHERE variant_id = $1")
+            .bind(id)
+            .fetch_optional(&mut *executor.tx)
+            .await
+            .map_err(|e| AppError::Database(e))?;
 
         Ok(row.map(|r| r.try_get("quantity").unwrap_or(0)).unwrap_or(0))
     }
@@ -63,10 +58,7 @@ impl InventoryRepository for PostgresInventoryRepository {
         Ok(())
     }
 
-    async fn list_all_stocks(
-        &self,
-        exec: &mut dyn DbExecutor,
-    ) -> Result<Vec<Stock>, AppError> {
+    async fn list_all_stocks(&self, exec: &mut dyn DbExecutor) -> Result<Vec<Stock>, AppError> {
         let executor = SqlxExecutor::from_executor(exec);
 
         let rows = sqlx::query("SELECT variant_id, quantity FROM inventory.stock")

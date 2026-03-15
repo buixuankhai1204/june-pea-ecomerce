@@ -14,7 +14,7 @@ impl ListCouponsUsecase {
 
     pub async fn execute(&self) -> Result<Vec<Coupon>, AppError> {
         let repo = self.repo.clone();
-        
+
         let fetched_coupons = Arc::new(tokio::sync::Mutex::new(None));
         let fetched_coupons_clone = fetched_coupons.clone();
 

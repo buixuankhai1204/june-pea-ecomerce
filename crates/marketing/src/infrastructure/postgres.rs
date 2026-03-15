@@ -109,7 +109,11 @@ impl CouponRepository for PostgresCouponRepository {
         Ok(rows)
     }
 
-    async fn delete_coupon(&self, exec: &mut dyn DbExecutor, id: uuid::Uuid) -> Result<(), AppError> {
+    async fn delete_coupon(
+        &self,
+        exec: &mut dyn DbExecutor,
+        id: uuid::Uuid,
+    ) -> Result<(), AppError> {
         let executor = SqlxExecutor::from_executor(exec);
 
         sqlx::query("DELETE FROM marketing.coupons WHERE id = $1")

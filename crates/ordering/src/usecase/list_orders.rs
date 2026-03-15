@@ -15,13 +15,13 @@ impl ListOrdersUsecase {
 
     pub async fn execute(&self, customer_id: Uuid) -> Result<Vec<Order>, AppError> {
         let repo = self.repo.clone();
-        
+
         let fetched_orders = Arc::new(tokio::sync::Mutex::new(None));
         let fetched_orders_clone = fetched_orders.clone();
 
         self.uow
             .run_atomic(Box::new(move |exec| {
-                Box::pin(async move { 
+                Box::pin(async move {
                     let orders = repo.list_orders(exec, customer_id).await?;
                     *fetched_orders_clone.lock().await = Some(orders);
                     Ok(())

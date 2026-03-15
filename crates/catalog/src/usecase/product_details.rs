@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use tokio::spawn;
-use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::cache::CatalogCache;
+use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::model::ProductWithVariants;
 use shared::AppError;
+use std::sync::Arc;
+use tokio::spawn;
 
 pub struct GetProductUsecase {
     repo: Arc<dyn CatalogRepository>,
@@ -22,7 +22,10 @@ impl GetProductUsecase {
         }
 
         tracing::info!("Cache miss for slug: {}. Fetching from DB...", slug);
-        let product = self.repo.get_by_slug(slug).await?
+        let product = self
+            .repo
+            .get_by_slug(slug)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("Product {} not found", slug)))?;
 
         let cache_clone = self.cache.clone();

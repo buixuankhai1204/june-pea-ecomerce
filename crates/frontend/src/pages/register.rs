@@ -1,6 +1,6 @@
-use leptos::prelude::*;
 use leptos::ev::SubmitEvent;
 use leptos::html;
+use leptos::prelude::*;
 use web_sys::HtmlInputElement;
 
 use crate::api::client;
@@ -19,15 +19,37 @@ pub fn RegisterPage() -> impl IntoView {
     let on_submit = move |ev: SubmitEvent| {
         ev.prevent_default();
 
-        let email = email_ref.get().map(|el| { let el: &HtmlInputElement = &el; el.value() }).unwrap_or_default();
-        let password = password_ref.get().map(|el| { let el: &HtmlInputElement = &el; el.value() }).unwrap_or_default();
-        let password_confirm = confirm_ref.get().map(|el| { let el: &HtmlInputElement = &el; el.value() }).unwrap_or_default();
+        let email = email_ref
+            .get()
+            .map(|el| {
+                let el: &HtmlInputElement = &el;
+                el.value()
+            })
+            .unwrap_or_default();
+        let password = password_ref
+            .get()
+            .map(|el| {
+                let el: &HtmlInputElement = &el;
+                el.value()
+            })
+            .unwrap_or_default();
+        let password_confirm = confirm_ref
+            .get()
+            .map(|el| {
+                let el: &HtmlInputElement = &el;
+                el.value()
+            })
+            .unwrap_or_default();
 
         loading.set(true);
         error.set(String::new());
 
         wasm_bindgen_futures::spawn_local(async move {
-            let req = RegisterRequest { email, password, password_confirm };
+            let req = RegisterRequest {
+                email,
+                password,
+                password_confirm,
+            };
             match client::post::<serde_json::Value, _>("/api/v1/auth/register", &req).await {
                 Ok(_) => {
                     success.set(true);

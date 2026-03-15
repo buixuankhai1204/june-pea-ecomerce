@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use shared::AppError;
-use uuid::Uuid;
 use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::model::{Product, ProductVariant, ProductWithVariants};
+use async_trait::async_trait;
+use shared::AppError;
+use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct PostgresCatalogRepository {
     pool: Arc<sqlx::PgPool>,
@@ -21,9 +21,9 @@ impl CatalogRepository for PostgresCatalogRepository {
         let product = sqlx::query_as::<_, Product>(
             "SELECT id, name, slug, description, category_id FROM catalog.products WHERE slug = $1",
         )
-            .bind(slug)
-            .fetch_optional(&*self.pool)
-            .await?;
+        .bind(slug)
+        .fetch_optional(&*self.pool)
+        .await?;
 
         let product = match product {
             Some(p) => p,
@@ -44,9 +44,9 @@ impl CatalogRepository for PostgresCatalogRepository {
         let product = sqlx::query_as::<_, Product>(
             "SELECT id, name, slug, description, category_id FROM catalog.products WHERE id = $1",
         )
-            .bind(id)
-            .fetch_optional(&*self.pool)
-            .await?;
+        .bind(id)
+        .fetch_optional(&*self.pool)
+        .await?;
 
         let product = match product {
             Some(p) => p,
@@ -82,29 +82,42 @@ impl CatalogRepository for PostgresCatalogRepository {
         Ok(row.0)
     }
 
-    async fn create_category(&self, id: Uuid, name: &str, slug: &str, parent_id: Option<Uuid>) -> Result<(), AppError> {
+    async fn create_category(
+        &self,
+        id: Uuid,
+        name: &str,
+        slug: &str,
+        parent_id: Option<Uuid>,
+    ) -> Result<(), AppError> {
         sqlx::query(
-            "INSERT INTO catalog.categories (id, name, slug, parent_id) VALUES ($1, $2, $3, $4)"
+            "INSERT INTO catalog.categories (id, name, slug, parent_id) VALUES ($1, $2, $3, $4)",
         )
-            .bind(id)
-            .bind(name)
-            .bind(slug)
-            .bind(parent_id)
-            .execute(&*self.pool)
-            .await?;
+        .bind(id)
+        .bind(name)
+        .bind(slug)
+        .bind(parent_id)
+        .execute(&*self.pool)
+        .await?;
         Ok(())
     }
 
     async fn list_categories(&self) -> Result<Vec<crate::domain::model::Category>, AppError> {
         let rows = sqlx::query_as::<_, crate::domain::model::Category>(
-            "SELECT id, name, slug, parent_id FROM catalog.categories ORDER BY name"
+            "SELECT id, name, slug, parent_id FROM catalog.categories ORDER BY name",
         )
-            .fetch_all(&*self.pool)
-            .await?;
+        .fetch_all(&*self.pool)
+        .await?;
         Ok(rows)
     }
 
-    async fn create_product(&self, id: Uuid, category_id: Uuid, name: &str, slug: &str, description: Option<&str>) -> Result<(), AppError> {
+    async fn create_product(
+        &self,
+        id: Uuid,
+        category_id: Uuid,
+        name: &str,
+        slug: &str,
+        description: Option<&str>,
+    ) -> Result<(), AppError> {
         sqlx::query(
             "INSERT INTO catalog.products (id, category_id, name, slug, description) VALUES ($1, $2, $3, $4, $5)"
         )
@@ -118,7 +131,14 @@ impl CatalogRepository for PostgresCatalogRepository {
         Ok(())
     }
 
-    async fn update_product(&self, id: Uuid, category_id: Uuid, name: &str, slug: &str, description: Option<&str>) -> Result<(), AppError> {
+    async fn update_product(
+        &self,
+        id: Uuid,
+        category_id: Uuid,
+        name: &str,
+        slug: &str,
+        description: Option<&str>,
+    ) -> Result<(), AppError> {
         sqlx::query(
             "UPDATE catalog.products SET category_id = $1, name = $2, slug = $3, description = $4 WHERE id = $5"
         )
@@ -148,7 +168,16 @@ impl CatalogRepository for PostgresCatalogRepository {
         Ok(())
     }
 
-    async fn create_variant(&self, id: Uuid, product_id: Uuid, sku: &str, name: &str, base_price: rust_decimal::Decimal, sale_price: Option<rust_decimal::Decimal>, attributes: serde_json::Value) -> Result<(), AppError> {
+    async fn create_variant(
+        &self,
+        id: Uuid,
+        product_id: Uuid,
+        sku: &str,
+        name: &str,
+        base_price: rust_decimal::Decimal,
+        sale_price: Option<rust_decimal::Decimal>,
+        attributes: serde_json::Value,
+    ) -> Result<(), AppError> {
         sqlx::query(
             "INSERT INTO catalog.product_variants (id, product_id, sku, name, base_price, sale_price, attributes) VALUES ($1, $2, $3, $4, $5, $6, $7)"
         )
@@ -164,7 +193,15 @@ impl CatalogRepository for PostgresCatalogRepository {
         Ok(())
     }
 
-    async fn update_variant(&self, id: Uuid, sku: &str, name: &str, base_price: rust_decimal::Decimal, sale_price: Option<rust_decimal::Decimal>, attributes: serde_json::Value) -> Result<(), AppError> {
+    async fn update_variant(
+        &self,
+        id: Uuid,
+        sku: &str,
+        name: &str,
+        base_price: rust_decimal::Decimal,
+        sale_price: Option<rust_decimal::Decimal>,
+        attributes: serde_json::Value,
+    ) -> Result<(), AppError> {
         sqlx::query(
             "UPDATE catalog.product_variants SET sku = $1, name = $2, base_price = $3, sale_price = $4, attributes = $5 WHERE id = $6"
         )

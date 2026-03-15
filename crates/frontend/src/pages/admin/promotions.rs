@@ -1,5 +1,5 @@
-use leptos::prelude::*;
 use crate::api::client::marketing as marketing_api;
+use leptos::prelude::*;
 
 fn icon_plus() -> impl IntoView {
     view! {
@@ -26,11 +26,10 @@ pub fn AdminPromotionsPage() -> impl IntoView {
     let (discount, set_discount) = signal(0i64);
     let (max_uses, set_max_uses) = signal(100i32);
 
-    let coupons: LocalResource<Vec<crate::api::types::Coupon>> = LocalResource::new(move || {
-        async move {
+    let coupons: LocalResource<Vec<crate::api::types::Coupon>> =
+        LocalResource::new(move || async move {
             marketing_api::list_coupons().await.unwrap_or_default()
-        }
-    });
+        });
 
     let create_coupon = Action::new_local(|req: &crate::api::types::CreateCouponRequest| {
         let req = req.clone();
@@ -39,9 +38,7 @@ pub fn AdminPromotionsPage() -> impl IntoView {
 
     let delete_coupon = Action::new_local(|code: &String| {
         let code = code.clone();
-        async move {
-            marketing_api::delete_coupon(&code).await
-        }
+        async move { marketing_api::delete_coupon(&code).await }
     });
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
@@ -72,7 +69,7 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                     <h1 class="text-xl font-black text-gray-900">"Promotions"</h1>
                     <p class="text-xs text-gray-400 mt-0.5">"Create and manage discount codes and campaigns"</p>
                 </div>
-                <button 
+                <button
                     class="flex items-center gap-1.5 bg-[#FCE300] hover:bg-yellow-400 text-gray-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
                     on:click=move |_| set_show_create_modal.set(true)
                 >
@@ -129,7 +126,7 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                                             <span class=format!("text-[10px] font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 {}", badge_bg)>
                                                 {status_text}
                                             </span>
-                                            <button 
+                                            <button
                                                 on:click=move |e| { e.stop_propagation(); delete_coupon.dispatch(p_code.clone()); }
                                                 class="p-1.5 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                             >
@@ -175,9 +172,9 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                         <form on:submit=on_submit class="p-6 space-y-4">
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Coupon Code"</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="e.g. TET2024" 
+                                <input
+                                    type="text"
+                                    placeholder="e.g. TET2024"
                                     required
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm font-mono uppercase"
                                     on:input=move |ev| set_code.set(event_target_value(&ev).to_uppercase())
@@ -187,8 +184,8 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Discount (₫)"</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         required
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                         on:input=move |ev| set_discount.set(event_target_value(&ev).parse().unwrap_or(0))
@@ -197,8 +194,8 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Max Uses"</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         required
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                         on:input=move |ev| set_max_uses.set(event_target_value(&ev).parse().unwrap_or(100))
@@ -207,14 +204,14 @@ pub fn AdminPromotionsPage() -> impl IntoView {
                                 </div>
                             </div>
                             <div class="flex gap-3 pt-4">
-                                <button 
+                                <button
                                     type="button"
                                     class="flex-1 px-6 py-3 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
                                     on:click=move |_| set_show_create_modal.set(false)
                                 >
                                     "Cancel"
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     class="flex-1 px-6 py-3 rounded-2xl bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold transition-all shadow-lg shadow-yellow-200/50 cursor-pointer"
                                 >

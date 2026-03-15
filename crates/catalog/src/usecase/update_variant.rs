@@ -1,8 +1,8 @@
+use crate::domain::catalog_repository::CatalogRepository;
+use rust_decimal::Decimal;
+use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::catalog_repository::CatalogRepository;
-use shared::AppError;
-use rust_decimal::Decimal;
 
 pub struct UpdateVariantUsecase {
     repo: Arc<dyn CatalogRepository>,
@@ -14,14 +14,16 @@ impl UpdateVariantUsecase {
     }
 
     pub async fn execute(
-        &self, 
-        id: Uuid, 
-        sku: String, 
-        name: String, 
-        base_price: Decimal, 
-        sale_price: Option<Decimal>, 
-        attributes: serde_json::Value
+        &self,
+        id: Uuid,
+        sku: String,
+        name: String,
+        base_price: Decimal,
+        sale_price: Option<Decimal>,
+        attributes: serde_json::Value,
     ) -> Result<(), AppError> {
-        self.repo.update_variant(id, &sku, &name, base_price, sale_price, attributes).await
+        self.repo
+            .update_variant(id, &sku, &name, base_price, sale_price, attributes)
+            .await
     }
 }

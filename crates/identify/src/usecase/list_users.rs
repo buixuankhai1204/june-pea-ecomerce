@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use crate::domain::user_repository::UserRepository;
 use crate::domain::model::User;
+use crate::domain::user_repository::UserRepository;
 use shared::error::AppError;
+use std::sync::Arc;
 
 pub struct ListUsersUsecase {
     repo: Arc<dyn UserRepository>,

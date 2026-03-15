@@ -2,28 +2,22 @@ use crate::domain::cache::CatalogCache;
 use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::model::{PaginatedProducts, ProductWithVariants};
 use crate::usecase::{
-    list_products::ListProductsUsecase,
-    product_details::GetProductUsecase,
-    product_by_id::GetProductByIdUsecase,
-    create_category::CreateCategoryUsecase,
-    create_product::CreateProductUsecase,
-    update_product::UpdateProductUsecase,
-    list_categories::ListCategoriesUsecase,
-    delete_product::DeleteProductUsecase,
-    delete_category::DeleteCategoryUsecase,
-    create_variant::CreateVariantUsecase,
-    update_variant::UpdateVariantUsecase,
-    delete_variant::DeleteVariantUsecase,
+    create_category::CreateCategoryUsecase, create_product::CreateProductUsecase,
+    create_variant::CreateVariantUsecase, delete_category::DeleteCategoryUsecase,
+    delete_product::DeleteProductUsecase, delete_variant::DeleteVariantUsecase,
+    list_categories::ListCategoriesUsecase, list_products::ListProductsUsecase,
+    product_by_id::GetProductByIdUsecase, product_details::GetProductUsecase,
+    update_product::UpdateProductUsecase, update_variant::UpdateVariantUsecase,
 };
 use axum::extract::{Path, Query, State};
-use axum::routing::{get, post, patch, delete};
+use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
-use uuid::Uuid;
 use serde::Deserialize;
 use shared::AppError;
 use std::sync::Arc;
+use uuid::Uuid;
 
-#[derive( Clone)]
+#[derive(Clone)]
 pub struct CatalogUsecase {
     get_product_usecase: Arc<GetProductUsecase>,
     get_product_by_id_usecase: Arc<GetProductByIdUsecase>,
@@ -154,16 +148,29 @@ struct UpdateVariantRequest {
     attributes: serde_json::Value,
 }
 
-pub fn init() -> Router<CatalogUsecase>
-{
+pub fn init() -> Router<CatalogUsecase> {
     Router::new()
-        .route("/products", get(list_products_handler).post(create_product_handler))
-        .route("/products/{id}", get(get_product_by_id_handler).patch(update_product_handler).delete(delete_product_handler))
+        .route(
+            "/products",
+            get(list_products_handler).post(create_product_handler),
+        )
+        .route(
+            "/products/{id}",
+            get(get_product_by_id_handler)
+                .patch(update_product_handler)
+                .delete(delete_product_handler),
+        )
         .route("/products/slug/{slug}", get(get_product_handler))
-        .route("/categories", get(list_categories_handler).post(create_category_handler))
+        .route(
+            "/categories",
+            get(list_categories_handler).post(create_category_handler),
+        )
         .route("/categories/{id}", delete(delete_category_handler))
         .route("/variants", post(create_variant_handler))
-        .route("/variants/{id}", patch(update_variant_handler).delete(delete_variant_handler))
+        .route(
+            "/variants/{id}",
+            patch(update_variant_handler).delete(delete_variant_handler),
+        )
 }
 
 async fn list_products_handler(
@@ -180,8 +187,7 @@ async fn list_products_handler(
 async fn get_product_handler(
     State(state): State<CatalogUsecase>,
     Path(slug): Path<String>,
-) -> Result<Json<ProductWithVariants>, AppError>
-{
+) -> Result<Json<ProductWithVariants>, AppError> {
     let usecase = state.get_product_usecase();
     let product = usecase.execute(&slug).await?;
     Ok(Json(product))
@@ -190,8 +196,7 @@ async fn get_product_handler(
 async fn get_product_by_id_handler(
     State(state): State<CatalogUsecase>,
     Path(id): Path<Uuid>,
-) -> Result<Json<ProductWithVariants>, AppError>
-{
+) -> Result<Json<ProductWithVariants>, AppError> {
     let usecase = state.get_product_by_id_usecase();
     let product = usecase.execute(id).await?;
     Ok(Json(product))
@@ -210,7 +215,9 @@ async fn create_category_handler(
     Json(body): Json<CreateCategoryRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.create_category_usecase();
-    usecase.execute(body.name, body.slug, body.parent_id).await?;
+    usecase
+        .execute(body.name, body.slug, body.parent_id)
+        .await?;
     Ok(Json(true))
 }
 
@@ -219,7 +226,9 @@ async fn create_product_handler(
     Json(body): Json<CreateProductRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.create_product_usecase();
-    usecase.execute(body.name, body.slug, body.category_id, body.description).await?;
+    usecase
+        .execute(body.name, body.slug, body.category_id, body.description)
+        .await?;
     Ok(Json(true))
 }
 
@@ -229,7 +238,9 @@ async fn update_product_handler(
     Json(body): Json<UpdateProductRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.update_product_usecase();
-    usecase.execute(id, body.name, body.slug, body.category_id, body.description).await?;
+    usecase
+        .execute(id, body.name, body.slug, body.category_id, body.description)
+        .await?;
     Ok(Json(true))
 }
 
@@ -256,7 +267,16 @@ async fn create_variant_handler(
     Json(body): Json<CreateVariantRequest>,
 ) -> Result<Json<Uuid>, AppError> {
     let usecase = state.create_variant_usecase();
-    let id = usecase.execute(body.product_id, body.sku, body.name, body.base_price, body.sale_price, body.attributes).await?;
+    let id = usecase
+        .execute(
+            body.product_id,
+            body.sku,
+            body.name,
+            body.base_price,
+            body.sale_price,
+            body.attributes,
+        )
+        .await?;
     Ok(Json(id))
 }
 
@@ -266,7 +286,16 @@ async fn update_variant_handler(
     Json(body): Json<UpdateVariantRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.update_variant_usecase();
-    usecase.execute(id, body.sku, body.name, body.base_price, body.sale_price, body.attributes).await?;
+    usecase
+        .execute(
+            id,
+            body.sku,
+            body.name,
+            body.base_price,
+            body.sale_price,
+            body.attributes,
+        )
+        .await?;
     Ok(Json(true))
 }
 

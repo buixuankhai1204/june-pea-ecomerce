@@ -5,10 +5,8 @@ use uuid::Uuid;
 use inventory::{
     infrastructure::persistence::postgres::PostgresInventoryRepository,
     usecase::{
-        decrease_stock::DecreaseStockUsecase,
-        increase_stock::IncreaseStockUsecase,
-        get_stock::GetStockUsecase,
-        update_stock::UpdateStockUsecase,
+        decrease_stock::DecreaseStockUsecase, get_stock::GetStockUsecase,
+        increase_stock::IncreaseStockUsecase, update_stock::UpdateStockUsecase,
     },
 };
 use shared::{error::AppError, infrastructure::postgres::PostgresUnitOfWork};
@@ -58,16 +56,16 @@ async fn inject_stock(pool: &PgPool, variant_id: Uuid, quantity: i32) {
 
     sqlx::query(
         "INSERT INTO catalog.product_variants (id, product_id, sku, name, attributes, base_price) 
-        VALUES ($1, $2, $3, $4, '{}'::jsonb, $5) ON CONFLICT DO NOTHING"
+        VALUES ($1, $2, $3, $4, '{}'::jsonb, $5) ON CONFLICT DO NOTHING",
     )
-        .bind(variant_id)
-        .bind(product_id)
-        .bind(format!("TEST-SKU-{}", variant_id))
-        .bind("Test Variant")
-        .bind(sqlx::types::Decimal::from(100))
-        .execute(pool)
-        .await
-        .unwrap();
+    .bind(variant_id)
+    .bind(product_id)
+    .bind(format!("TEST-SKU-{}", variant_id))
+    .bind("Test Variant")
+    .bind(sqlx::types::Decimal::from(100))
+    .execute(pool)
+    .await
+    .unwrap();
 
     sqlx::query("INSERT INTO inventory.stock (variant_id, quantity) VALUES ($1, $2)")
         .bind(variant_id)
@@ -81,7 +79,7 @@ async fn inject_stock(pool: &PgPool, variant_id: Uuid, quantity: i32) {
 async fn e2e_get_stock_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let variant_id = Uuid::new_v4();
-    
+
     inject_stock(&pool, variant_id, 100).await;
 
     let stock_quantity = ctx.get_stock.execute(variant_id).await.unwrap();
@@ -92,7 +90,7 @@ async fn e2e_get_stock_works(pool: PgPool) {
 async fn e2e_increase_stock_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let variant_id = Uuid::new_v4();
-    
+
     inject_stock(&pool, variant_id, 100).await;
 
     // Increase stock
@@ -107,7 +105,7 @@ async fn e2e_increase_stock_works(pool: PgPool) {
 async fn e2e_decrease_stock_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let variant_id = Uuid::new_v4();
-    
+
     inject_stock(&pool, variant_id, 100).await;
 
     // Decrease stock
@@ -122,7 +120,7 @@ async fn e2e_decrease_stock_works(pool: PgPool) {
 async fn e2e_decrease_stock_insufficient(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let variant_id = Uuid::new_v4();
-    
+
     inject_stock(&pool, variant_id, 50).await;
 
     // Decrease stock by more than available
@@ -138,7 +136,7 @@ async fn e2e_decrease_stock_insufficient(pool: PgPool) {
 async fn e2e_update_stock_works(pool: PgPool) {
     let ctx = TestContext::new(pool.clone());
     let variant_id = Uuid::new_v4();
-    
+
     inject_stock(&pool, variant_id, 100).await;
 
     // Update to absolute value

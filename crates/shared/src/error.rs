@@ -28,11 +28,17 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
-            Self::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Database Error".into()),
+            Self::Database(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Database Error".into(),
+            ),
             Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             Self::Validation(msg) => (StatusCode::BAD_REQUEST, msg),
             Self::Conflict(msg) => (StatusCode::CONFLICT, msg),
-            Self::InternalServerError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".into()),
+            Self::InternalServerError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".into(),
+            ),
         };
 
         let body = Json(json!({

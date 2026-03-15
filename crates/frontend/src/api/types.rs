@@ -267,7 +267,12 @@ pub enum ApiError {
 impl ApiError {
     pub fn user_message(&self) -> &str {
         match self {
-            Self::Network(m) | Self::Unauthorized(m) | Self::NotFound(m) | Self::Validation(m) | Self::Conflict(m) | Self::Server(m) => m,
+            Self::Network(m)
+            | Self::Unauthorized(m)
+            | Self::NotFound(m)
+            | Self::Validation(m)
+            | Self::Conflict(m)
+            | Self::Server(m) => m,
         }
     }
 }

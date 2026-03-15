@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
 use crate::api::client;
-use crate::api::types::{ProductWithVariants, ProductVariant, ApiError};
+use crate::api::types::{ApiError, ProductVariant, ProductWithVariants};
 use crate::state::cart::{CartItem, CartState};
 
 // ─── SVG Icons ─────────────────────────────────────────────────────────────
@@ -59,13 +59,15 @@ pub fn ProductDetailPage() -> impl IntoView {
     let active_thumb = RwSignal::new(0usize);
     let quantity = RwSignal::new(1i32);
 
-    let product: LocalResource<Result<ProductWithVariants, ApiError>> = LocalResource::new(move || {
-        let slug = params.read().get("slug").unwrap_or_default().to_string();
-        async move {
-            let res: Result<ProductWithVariants, ApiError> = client::get(&format!("/api/v1/catalog/products/slug/{}", slug)).await;
-            res
-        }
-    });
+    let product: LocalResource<Result<ProductWithVariants, ApiError>> =
+        LocalResource::new(move || {
+            let slug = params.read().get("slug").unwrap_or_default().to_string();
+            async move {
+                let res: Result<ProductWithVariants, ApiError> =
+                    client::get(&format!("/api/v1/catalog/products/slug/{}", slug)).await;
+                res
+            }
+        });
 
     view! {
         <div class="bg-white min-h-screen font-[Montserrat,system-ui,sans-serif]">
@@ -306,7 +308,7 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                                 >"+"</button>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         {move || {
                                                             let v: Option<ProductVariant> = matching_variant.get();
                                                             view! {
@@ -349,7 +351,7 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                         }}
                                                     </div>
 
-                                                    <button 
+                                                    <button
                                                         class="w-full bg-black text-white py-4 rounded-sm font-semibold tracking-wide hover:bg-gray-900 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                                         disabled=move || matching_variant.get().is_none()
                                                         on:click={

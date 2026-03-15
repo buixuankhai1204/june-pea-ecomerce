@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::domain::model::ProductWithVariants;
+use async_trait::async_trait;
 use shared::AppError;
 
 #[async_trait]

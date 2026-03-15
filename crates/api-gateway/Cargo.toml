@@ -22,3 +22,4 @@ tracing-subscriber = { workspace = true }
 tower-http = { workspace = true }
 sqlx = { workspace = true }
 dotenv = "0.15.0"
+payment = { path = "../payment" }

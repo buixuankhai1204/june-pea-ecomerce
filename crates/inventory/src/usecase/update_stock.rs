@@ -1,7 +1,7 @@
+use crate::domain::repository::InventoryRepository;
+use shared::{database::UnitOfWork, error::AppError};
 use std::sync::Arc;
 use uuid::Uuid;
-use shared::{database::UnitOfWork, error::AppError};
-use crate::domain::repository::InventoryRepository;
 
 pub struct UpdateStockUsecase {
     repo: Arc<dyn InventoryRepository>,
@@ -15,10 +15,10 @@ impl UpdateStockUsecase {
 
     pub async fn execute(&self, variant_id: Uuid, quantity: i32) -> Result<(), AppError> {
         let repo = self.repo.clone();
-        self.uow.run_atomic(Box::new(move |exec| {
-            Box::pin(async move {
-                repo.update_stock(exec, variant_id, quantity).await
-            })
-        })).await
+        self.uow
+            .run_atomic(Box::new(move |exec| {
+                Box::pin(async move { repo.update_stock(exec, variant_id, quantity).await })
+            }))
+            .await
     }
 }

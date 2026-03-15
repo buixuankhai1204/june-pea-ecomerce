@@ -24,16 +24,69 @@ struct Invoice {
 #[component]
 pub fn AdminPaymentInvoicesPage() -> impl IntoView {
     let invoices = vec![
-        Invoice { num: "INV-2026-041", customer: "Nguyễn Văn An",   date: "12/03/2026", due: "19/03/2026", amount: "₫378k", method: "VNPAY",   status: "Paid" },
-        Invoice { num: "INV-2026-040", customer: "Trần Thị Bình",   date: "12/03/2026", due: "19/03/2026", amount: "₫249k", method: "MoMo",    status: "Paid" },
-        Invoice { num: "INV-2026-039", customer: "Lê Hoàng Cường",  date: "11/03/2026", due: "18/03/2026", amount: "₫589k", method: "COD",     status: "Pending" },
-        Invoice { num: "INV-2026-038", customer: "Phạm Thu Dung",   date: "11/03/2026", due: "18/03/2026", amount: "₫657k", method: "ZaloPay", status: "Paid" },
-        Invoice { num: "INV-2026-037", customer: "Hoàng Minh Đức",  date: "10/03/2026", due: "17/03/2026", amount: "₫438k", method: "VNPAY",   status: "Overdue" },
-        Invoice { num: "INV-2026-036", customer: "Vũ Thị Hoa",      date: "10/03/2026", due: "17/03/2026", amount: "₫219k", method: "MoMo",    status: "Paid" },
+        Invoice {
+            num: "INV-2026-041",
+            customer: "Nguyễn Văn An",
+            date: "12/03/2026",
+            due: "19/03/2026",
+            amount: "₫378k",
+            method: "VNPAY",
+            status: "Paid",
+        },
+        Invoice {
+            num: "INV-2026-040",
+            customer: "Trần Thị Bình",
+            date: "12/03/2026",
+            due: "19/03/2026",
+            amount: "₫249k",
+            method: "MoMo",
+            status: "Paid",
+        },
+        Invoice {
+            num: "INV-2026-039",
+            customer: "Lê Hoàng Cường",
+            date: "11/03/2026",
+            due: "18/03/2026",
+            amount: "₫589k",
+            method: "COD",
+            status: "Pending",
+        },
+        Invoice {
+            num: "INV-2026-038",
+            customer: "Phạm Thu Dung",
+            date: "11/03/2026",
+            due: "18/03/2026",
+            amount: "₫657k",
+            method: "ZaloPay",
+            status: "Paid",
+        },
+        Invoice {
+            num: "INV-2026-037",
+            customer: "Hoàng Minh Đức",
+            date: "10/03/2026",
+            due: "17/03/2026",
+            amount: "₫438k",
+            method: "VNPAY",
+            status: "Overdue",
+        },
+        Invoice {
+            num: "INV-2026-036",
+            customer: "Vũ Thị Hoa",
+            date: "10/03/2026",
+            due: "17/03/2026",
+            amount: "₫219k",
+            method: "MoMo",
+            status: "Paid",
+        },
     ];
 
     // Donut chart slices for payment methods
-    let methods = [("VNPAY", 42, "#6366F1"), ("MoMo", 31, "#F59E0B"), ("ZaloPay", 15, "#10B981"), ("COD", 12, "#F43F5E")];
+    let methods = [
+        ("VNPAY", 42, "#6366F1"),
+        ("MoMo", 31, "#F59E0B"),
+        ("ZaloPay", 15, "#10B981"),
+        ("COD", 12, "#F43F5E"),
+    ];
 
     view! {
         <div class="p-6 space-y-6">

@@ -43,11 +43,19 @@ fn sparkline(points: &[f64], color: &str) -> impl IntoView {
     let range = (max - min).max(1.0);
     let n = points.len();
 
-    let path: String = points.iter().enumerate().map(|(i, &v)| {
-        let x = i as f64 / (n - 1).max(1) as f64 * w;
-        let y = h - (v - min) / range * (h - 4.0) - 2.0;
-        if i == 0 { format!("M {:.1} {:.1}", x, y) } else { format!(" L {:.1} {:.1}", x, y) }
-    }).collect();
+    let path: String = points
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| {
+            let x = i as f64 / (n - 1).max(1) as f64 * w;
+            let y = h - (v - min) / range * (h - 4.0) - 2.0;
+            if i == 0 {
+                format!("M {:.1} {:.1}", x, y)
+            } else {
+                format!(" L {:.1} {:.1}", x, y)
+            }
+        })
+        .collect();
 
     let color = color.to_string();
     view! {
@@ -112,24 +120,88 @@ pub fn AdminDashboardPage() -> impl IntoView {
     let revenue_toggle = RwSignal::new("Daily");
 
     let products = vec![
-        Product { name: "Áo Thun Modal AirDry", category: "Áo Thun", stock: 244, sold: 124, price: "₫189k", color: "#6366F1" },
-        Product { name: "Áo Sơ Mi Non-Iron",    category: "Áo Sơ Mi", stock: 180, sold: 96,  price: "₫249k", color: "#F59E0B" },
-        Product { name: "Áo Polo Raglan Flex",   category: "Áo Polo",  stock: 312, sold: 88,  price: "₫219k", color: "#10B981" },
-        Product { name: "Áo Khoác Worker Xám",   category: "Áo Khoác", stock: 98,  sold: 54,  price: "₫589k", color: "#F43F5E" },
+        Product {
+            name: "Áo Thun Modal AirDry",
+            category: "Áo Thun",
+            stock: 244,
+            sold: 124,
+            price: "₫189k",
+            color: "#6366F1",
+        },
+        Product {
+            name: "Áo Sơ Mi Non-Iron",
+            category: "Áo Sơ Mi",
+            stock: 180,
+            sold: 96,
+            price: "₫249k",
+            color: "#F59E0B",
+        },
+        Product {
+            name: "Áo Polo Raglan Flex",
+            category: "Áo Polo",
+            stock: 312,
+            sold: 88,
+            price: "₫219k",
+            color: "#10B981",
+        },
+        Product {
+            name: "Áo Khoác Worker Xám",
+            category: "Áo Khoác",
+            stock: 98,
+            sold: 54,
+            price: "₫589k",
+            color: "#F43F5E",
+        },
     ];
 
     let attendance = vec![
-        StaffAttendance { name: "Nguyễn Văn An",  role: "Cashier",           time: "08:32 AM", status: "on_time" },
-        StaffAttendance { name: "Trần Thị Bình",  role: "Inventory Manager",  time: "08:47 AM", status: "on_time" },
-        StaffAttendance { name: "Lê Hoàng Cường", role: "Marketing Strategist", time: "09:12 AM", status: "late" },
-        StaffAttendance { name: "Phạm Thu Dung",  role: "Inventory Manager",  time: "08:55 AM", status: "on_time" },
+        StaffAttendance {
+            name: "Nguyễn Văn An",
+            role: "Cashier",
+            time: "08:32 AM",
+            status: "on_time",
+        },
+        StaffAttendance {
+            name: "Trần Thị Bình",
+            role: "Inventory Manager",
+            time: "08:47 AM",
+            status: "on_time",
+        },
+        StaffAttendance {
+            name: "Lê Hoàng Cường",
+            role: "Marketing Strategist",
+            time: "09:12 AM",
+            status: "late",
+        },
+        StaffAttendance {
+            name: "Phạm Thu Dung",
+            role: "Inventory Manager",
+            time: "08:55 AM",
+            status: "on_time",
+        },
     ];
 
     let top_sellers = vec![
-        TopSeller { name: "Food",     pct: 72, color: "#6366F1" },
-        TopSeller { name: "Clothing", pct: 58, color: "#F59E0B" },
-        TopSeller { name: "Toys",     pct: 40, color: "#10B981" },
-        TopSeller { name: "Medicine", pct: 28, color: "#F43F5E" },
+        TopSeller {
+            name: "Food",
+            pct: 72,
+            color: "#6366F1",
+        },
+        TopSeller {
+            name: "Clothing",
+            pct: 58,
+            color: "#F59E0B",
+        },
+        TopSeller {
+            name: "Toys",
+            pct: 40,
+            color: "#10B981",
+        },
+        TopSeller {
+            name: "Medicine",
+            pct: 28,
+            color: "#F43F5E",
+        },
     ];
 
     let revenue_points = vec![8.2, 12.3, 10.5, 16.8, 14.2, 20.18, 18.5];

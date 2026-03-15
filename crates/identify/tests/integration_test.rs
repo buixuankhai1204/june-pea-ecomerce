@@ -1,16 +1,14 @@
-use sqlx::PgPool;
-use std::sync::Arc;
-use uuid::Uuid;
 use identify::{
     domain::user_repository::UserRepository,
     infrastructure::persistence::postgres::PostgresUserRepository,
     usecase::{
-        auth::AuthUsecase,
-        get_me::GetMeUsecase,
+        auth::AuthUsecase, get_me::GetMeUsecase, list_users::ListUsersUsecase,
         update_profile::UpdateProfileUsecase,
-        list_users::ListUsersUsecase,
     },
 };
+use sqlx::PgPool;
+use std::sync::Arc;
+use uuid::Uuid;
 
 struct TestContext {
     auth: AuthUsecase,
@@ -40,7 +38,10 @@ async fn e2e_user_profile_workflow(pool: PgPool) {
     let password = "password123".to_string();
 
     // 1. Register
-    ctx.auth.register(email.clone(), password.clone()).await.unwrap();
+    ctx.auth
+        .register(email.clone(), password.clone())
+        .await
+        .unwrap();
 
     // 2. Login to get user (re-fetching via repo to get ID)
     let user = ctx.repo.find_by_email(&email).await.unwrap().unwrap();
@@ -52,7 +53,10 @@ async fn e2e_user_profile_workflow(pool: PgPool) {
 
     // 4. Update Profile
     let new_email = format!("updated-{}@example.com", Uuid::new_v4());
-    ctx.update_profile.execute(user_id, new_email.clone()).await.unwrap();
+    ctx.update_profile
+        .execute(user_id, new_email.clone())
+        .await
+        .unwrap();
 
     // 5. Verify update
     let updated_me = ctx.get_me.execute(user_id).await.unwrap();

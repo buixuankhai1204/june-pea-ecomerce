@@ -17,11 +17,10 @@ pub fn AdminStaffPage() -> impl IntoView {
     let (email, set_email) = signal(String::new());
     let (password, set_password) = signal(String::new());
 
-    let users_resource: LocalResource<Vec<User>> = LocalResource::new(move || {
-        async move {
-            identity_api::list_users().await.unwrap_or_default()
-        }
-    });
+    let users_resource: LocalResource<Vec<User>> =
+        LocalResource::new(
+            move || async move { identity_api::list_users().await.unwrap_or_default() },
+        );
 
     let register_action = Action::new_local(|req: &RegisterRequest| {
         let req = req.clone();
@@ -54,7 +53,7 @@ pub fn AdminStaffPage() -> impl IntoView {
                     <h1 class="text-xl font-black text-gray-900">"Staff Management"</h1>
                     <p class="text-xs text-gray-400 mt-0.5">"Manage user accounts and administrative rolls"</p>
                 </div>
-                <button 
+                <button
                     on:click=move |_| set_show_create_modal.set(true)
                     class="flex items-center gap-1.5 bg-[#FCE300] hover:bg-yellow-400 text-gray-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
@@ -121,10 +120,10 @@ pub fn AdminStaffPage() -> impl IntoView {
                         <form on:submit=on_submit class="p-6 space-y-4">
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Email Address"</label>
-                                <input 
-                                    type="email" 
+                                <input
+                                    type="email"
                                     required
-                                    placeholder="staff@junepae.com" 
+                                    placeholder="staff@junepae.com"
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                     on:input=move |ev| set_email.set(event_target_value(&ev))
                                     prop:value=email
@@ -132,24 +131,24 @@ pub fn AdminStaffPage() -> impl IntoView {
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Initial Password"</label>
-                                <input 
-                                    type="password" 
+                                <input
+                                    type="password"
                                     required
-                                    placeholder="••••••••" 
+                                    placeholder="••••••••"
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                     on:input=move |ev| set_password.set(event_target_value(&ev))
                                     prop:value=password
                                 />
                             </div>
                             <div class="flex gap-3 pt-4">
-                                <button 
+                                <button
                                     type="button"
                                     class="flex-1 px-6 py-3 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
                                     on:click=move |_| set_show_create_modal.set(false)
                                 >
                                     "Cancel"
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     class="flex-1 px-6 py-3 rounded-2xl bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold transition-all shadow-lg cursor-pointer"
                                 >

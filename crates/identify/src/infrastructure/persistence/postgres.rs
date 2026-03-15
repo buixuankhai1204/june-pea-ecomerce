@@ -20,12 +20,12 @@ impl UserRepository for PostgresUserRepository {
         sqlx::query(
             "INSERT INTO identify.users (id, email, password_hash, role) VALUES ($1, $2, $3, $4)",
         )
-            .bind(&user.id)
-            .bind(&user.email)
-            .bind(&user.password_hash)
-            .bind(&user.role)
-            .execute(&*self.pool)
-            .await?;
+        .bind(&user.id)
+        .bind(&user.email)
+        .bind(&user.password_hash)
+        .bind(&user.role)
+        .execute(&*self.pool)
+        .await?;
         Ok(())
     }
 
@@ -33,9 +33,9 @@ impl UserRepository for PostgresUserRepository {
         let user = sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, role FROM identify.users WHERE email = $1",
         )
-            .bind(email)
-            .fetch_optional(&*self.pool)
-            .await?;
+        .bind(email)
+        .fetch_optional(&*self.pool)
+        .await?;
         Ok(user)
     }
 
@@ -44,9 +44,9 @@ impl UserRepository for PostgresUserRepository {
         let user = sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, role FROM identify.users WHERE id = $1",
         )
-            .bind(id)
-            .fetch_optional(&*self.pool)
-            .await?;
+        .bind(id)
+        .fetch_optional(&*self.pool)
+        .await?;
         Ok(user)
     }
 
@@ -54,12 +54,12 @@ impl UserRepository for PostgresUserRepository {
         sqlx::query(
             "UPDATE identify.users SET email = $1, password_hash = $2, role = $3 WHERE id = $4",
         )
-            .bind(&user.email)
-            .bind(&user.password_hash)
-            .bind(&user.role)
-            .bind(&user.id)
-            .execute(&*self.pool)
-            .await?;
+        .bind(&user.email)
+        .bind(&user.password_hash)
+        .bind(&user.role)
+        .bind(&user.id)
+        .execute(&*self.pool)
+        .await?;
         Ok(())
     }
 
@@ -67,8 +67,8 @@ impl UserRepository for PostgresUserRepository {
         let users = sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, role FROM identify.users ORDER BY email",
         )
-            .fetch_all(&*self.pool)
-            .await?;
+        .fetch_all(&*self.pool)
+        .await?;
         Ok(users)
     }
 }

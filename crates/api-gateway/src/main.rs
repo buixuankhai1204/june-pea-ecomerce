@@ -8,6 +8,14 @@ use identify::infrastructure::persistence::postgres::PostgresUserRepository;
 use identify::routes::{init, IdentityState};
 use identify::usecase::auth::AuthUsecase;
 use inventory::routes::InventoryUsecase;
+use payment::config::PaymentConfig;
+use payment::infrastructure::persistence::postgres::PostgresPaymentRepository;
+use payment::infrastructure::vnpay::VnPayClient;
+use payment::routes::PaymentUsecase as PaymentRouter;
+use payment::usecase::{
+    create_vnpay_qr::CreateVnPayQrUsecase, get_payment_status::GetPaymentStatusUsecase,
+    handle_vnpay_ipn::HandleVnPayIpnUsecase,
+};
 use sqlx::PgPool;
 use std::env;
 use std::sync::Arc;
@@ -151,10 +159,38 @@ async fn main() -> anyhow::Result<()> {
     let ordering_usecases = Arc::new(ordering::routes::OrderingUsecase::new(
         place_order,
         cancel_order,
-        get_order,
+        get_order.clone(),
         list_orders,
-        update_order_status,
+        update_order_status.clone(),
         list_all_orders,
+    ));
+
+    // Payment
+    let payment_config = PaymentConfig::from_env()?;
+    let payment_repo: Arc<dyn payment::domain::PaymentRepository> =
+        Arc::new(PostgresPaymentRepository::new());
+    let vn_pay_client = Arc::new(VnPayClient::new(payment_config.clone()));
+    let create_vnpay_qr = Arc::new(CreateVnPayQrUsecase::new(
+        payment_repo.clone(),
+        postgrese_unit_of_work.clone(),
+        get_order.clone(),
+        vn_pay_client.clone(),
+        payment_config.clone(),
+    ));
+    let get_payment_status = Arc::new(GetPaymentStatusUsecase::new(
+        payment_repo.clone(),
+        postgrese_unit_of_work.clone(),
+    ));
+    let handle_vnpay_ipn = Arc::new(HandleVnPayIpnUsecase::new(
+        payment_repo.clone(),
+        postgrese_unit_of_work.clone(),
+        vn_pay_client.clone(),
+        update_order_status.clone(),
+    ));
+    let payment_usecases = Arc::new(PaymentRouter::new(
+        create_vnpay_qr,
+        get_payment_status,
+        handle_vnpay_ipn,
     ));
 
     let marketing_router =
@@ -163,6 +199,9 @@ async fn main() -> anyhow::Result<()> {
     let catalog_router = catalog::routes::init().with_state(catalog_usecases.as_ref().clone());
     let inventory_router =
         inventory::routes::init().with_state(inventory_usecases.as_ref().clone());
+    let payment_router = payment::routes::init().with_state(payment_usecases.as_ref().clone());
+    let payment_ipn_router =
+        payment::routes::init_ipn().with_state(payment_usecases.as_ref().clone());
 
     let state = AppState {
         auth_service: auth_usecases,
@@ -182,13 +221,15 @@ async fn main() -> anyhow::Result<()> {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .nest("/api/v1/auth", init())
-        .nest("/api/v1/catalog", catalog_router);
+        .nest("/api/v1/catalog", catalog_router)
+        .nest("/api/v1/payment", payment_ipn_router);
 
     // Protected routes (auth required)
     let protected_routes = Router::new()
         .nest("/api/v1/inventory", inventory_router)
         .nest("/api/v1/marketing", marketing_router)
         .nest("/api/v1/ordering", ordering_router)
+        .nest("/api/v1/payment", payment_router)
         .layer(axum::middleware::from_fn(middleware::auth::auth_middleware));
 
     let app = Router::new()

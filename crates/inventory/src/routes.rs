@@ -1,20 +1,18 @@
+use crate::domain::model::Stock;
+use crate::domain::repository::InventoryRepository;
+use crate::usecase::{
+    decrease_stock::DecreaseStockUsecase, get_stock::GetStockUsecase,
+    increase_stock::IncreaseStockUsecase, list_all_stocks::ListAllStocksUsecase,
+    update_stock::UpdateStockUsecase,
+};
 use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
+use shared::database::UnitOfWork;
 use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
-use shared::database::UnitOfWork;
-use crate::domain::repository::InventoryRepository;
-use crate::usecase::{
-    decrease_stock::DecreaseStockUsecase,
-    increase_stock::IncreaseStockUsecase,
-    get_stock::GetStockUsecase,
-    update_stock::UpdateStockUsecase,
-    list_all_stocks::ListAllStocksUsecase,
-};
-use crate::domain::model::Stock;
 
 #[derive(Clone)]
 pub struct InventoryUsecase {
@@ -69,8 +67,7 @@ struct UpdateStockRequest {
     quantity: i32,
 }
 
-pub fn init() -> Router<InventoryUsecase>
-{
+pub fn init() -> Router<InventoryUsecase> {
     Router::new()
         .route("/stock/{id}", axum::routing::get(get_stock_handler))
         .route("/decrease-stock", post(decrease_stock_handler))
@@ -82,8 +79,7 @@ pub fn init() -> Router<InventoryUsecase>
 async fn decrease_stock_handler(
     State(state): State<InventoryUsecase>,
     Json(body): Json<StockRequest>,
-) -> Result<Json<bool>, AppError>
-{
+) -> Result<Json<bool>, AppError> {
     if body.amount <= 0 {
         return Err(AppError::Validation("Amount must be positive".into()));
     }
@@ -95,8 +91,7 @@ async fn decrease_stock_handler(
 async fn increase_stock_handler(
     State(state): State<InventoryUsecase>,
     Json(body): Json<StockRequest>,
-) -> Result<Json<bool>, AppError>
-{
+) -> Result<Json<bool>, AppError> {
     if body.amount <= 0 {
         return Err(AppError::Validation("Amount must be positive".into()));
     }
@@ -108,8 +103,7 @@ async fn increase_stock_handler(
 async fn update_stock_handler(
     State(state): State<InventoryUsecase>,
     Json(body): Json<UpdateStockRequest>,
-) -> Result<Json<bool>, AppError>
-{
+) -> Result<Json<bool>, AppError> {
     let usecase = state.update_stock_usecase();
     usecase.execute(body.variant_id, body.quantity).await?;
     Ok(Json(true))
@@ -118,8 +112,7 @@ async fn update_stock_handler(
 async fn get_stock_handler(
     State(state): State<InventoryUsecase>,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
-) -> Result<Json<i32>, AppError>
-{
+) -> Result<Json<i32>, AppError> {
     let usecase = state.get_stock_usecase();
     let stock = usecase.execute(id).await?;
     Ok(Json(stock))
@@ -127,8 +120,7 @@ async fn get_stock_handler(
 
 async fn list_all_stocks_handler(
     State(state): State<InventoryUsecase>,
-) -> Result<Json<Vec<Stock>>, AppError>
-{
+) -> Result<Json<Vec<Stock>>, AppError> {
     let usecase = state.list_all_stocks_usecase();
     let stocks = usecase.execute().await?;
     Ok(Json(stocks))

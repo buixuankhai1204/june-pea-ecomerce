@@ -75,10 +75,18 @@ impl CartState {
     }
 
     pub fn total_items(&self) -> usize {
-        self.items.get_untracked().iter().map(|i| i.quantity as usize).sum()
+        self.items
+            .get_untracked()
+            .iter()
+            .map(|i| i.quantity as usize)
+            .sum()
     }
 
     pub fn total_price(&self) -> i64 {
-        self.items.get_untracked().iter().map(|i| i.line_total()).sum()
+        self.items
+            .get_untracked()
+            .iter()
+            .map(|i| i.line_total())
+            .sum()
     }
 }

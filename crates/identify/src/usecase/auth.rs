@@ -2,7 +2,8 @@ use crate::domain::user_repository::UserRepository;
 // Giả sử bạn đã viết encode_token trong shared
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
-    Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+};
 use shared::{
     auth::{encode_token, UserClaims},
     error::AppError,
@@ -36,7 +37,7 @@ impl AuthUsecase {
         self.repo.create_user(&user).await
     }
 
-        pub async fn login(&self, email: &str, password: &str) -> Result<String, AppError> {
+    pub async fn login(&self, email: &str, password: &str) -> Result<String, AppError> {
         let user = self
             .repo
             .find_by_email(email)
@@ -44,8 +45,8 @@ impl AuthUsecase {
             .ok_or(AppError::Unauthorized("Invalid credentials".into()))?;
 
         // Verify password
-        let parsed_hash = PasswordHash::new(&user.password_hash)
-            .map_err(|_| AppError::InternalServerError)?;
+        let parsed_hash =
+            PasswordHash::new(&user.password_hash).map_err(|_| AppError::InternalServerError)?;
 
         Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)

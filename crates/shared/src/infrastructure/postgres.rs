@@ -85,7 +85,7 @@ impl UnitOfWork for PostgresUnitOfWork {
 
         // For read-only, we always rollback (or commit, it doesn't matter much as long as no writes were made)
         let _ = executor.tx.rollback().await;
-        
+
         result
     }
 }

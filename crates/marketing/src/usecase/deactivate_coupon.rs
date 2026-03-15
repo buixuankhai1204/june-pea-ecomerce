@@ -20,9 +20,9 @@ impl DeactivateCouponUsecase {
             .run_atomic(Box::new(move |exec| {
                 Box::pin(async move {
                     let mut coupon = repo.get_coupon_by_code(exec, &code_clone).await?;
-                    
+
                     coupon.deactivate()?;
-                    
+
                     repo.update_coupon(exec, &coupon).await
                 })
             }))

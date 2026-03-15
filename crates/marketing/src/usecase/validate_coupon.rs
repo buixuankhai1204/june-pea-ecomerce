@@ -15,13 +15,13 @@ impl ValidateCouponUsecase {
     pub async fn execute(&self, code: &str) -> Result<Coupon, AppError> {
         let repo = self.repo.clone();
         let code_clone = code.to_string();
-        
+
         let fetched_coupon = Arc::new(tokio::sync::Mutex::new(None));
         let fetched_coupon_clone = fetched_coupon.clone();
 
         self.uow
             .run_atomic(Box::new(move |exec| {
-                Box::pin(async move { 
+                Box::pin(async move {
                     let coupon = repo.get_coupon_by_code(exec, &code_clone).await?;
                     *fetched_coupon_clone.lock().await = Some(coupon);
                     Ok(())

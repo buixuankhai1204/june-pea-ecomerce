@@ -8,11 +8,19 @@ fn sparkline(points: &[f64], color: &str) -> impl IntoView {
     let range = (max - min).max(1.0);
     let n = points.len();
 
-    let path: String = points.iter().enumerate().map(|(i, &v)| {
-        let x = i as f64 / (n - 1).max(1) as f64 * w;
-        let y = h - (v - min) / range * (h - 8.0) - 4.0;
-        if i == 0 { format!("M {:.1} {:.1}", x, y) } else { format!(" L {:.1} {:.1}", x, y) }
-    }).collect();
+    let path: String = points
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| {
+            let x = i as f64 / (n - 1).max(1) as f64 * w;
+            let y = h - (v - min) / range * (h - 8.0) - 4.0;
+            if i == 0 {
+                format!("M {:.1} {:.1}", x, y)
+            } else {
+                format!(" L {:.1} {:.1}", x, y)
+            }
+        })
+        .collect();
 
     let area = format!("{} L {:.1} {:.1} L 0 {:.1} Z", path, w, h, h);
     let color = color.to_string();
@@ -45,23 +53,42 @@ fn icon_download() -> impl IntoView {
 pub fn AdminReportsAnalyticsPage() -> impl IntoView {
     let chart_toggle = RwSignal::new("Monthly");
 
-    let revenue_points = vec![42.0, 58.0, 51.0, 73.0, 64.0, 88.0, 72.0, 95.0, 84.0, 110.0, 98.0, 128.0];
-    let order_points   = vec![840.0, 1020.0, 920.0, 1150.0, 1080.0, 1320.0, 1240.0, 1580.0, 1420.0, 1780.0, 1640.0, 1920.0];
-
-    let top_products = [
-        ("Áo Thun Modal AirDry",   420, "#6366F1"),
-        ("Áo Sơ Mi Non-Iron",       310, "#F59E0B"),
-        ("Áo Polo Raglan Flex",     268, "#10B981"),
-        ("Áo Khoác Worker",         145, "#F43F5E"),
-        ("Áo Thun Boxy Oversize",   98,  "#8B5CF6"),
+    let revenue_points = vec![
+        42.0, 58.0, 51.0, 73.0, 64.0, 88.0, 72.0, 95.0, 84.0, 110.0, 98.0, 128.0,
+    ];
+    let order_points = vec![
+        840.0, 1020.0, 920.0, 1150.0, 1080.0, 1320.0, 1240.0, 1580.0, 1420.0, 1780.0, 1640.0,
+        1920.0,
     ];
 
-    let traffic_sources = [("Direct", 38, "#6366F1"), ("Social", 27, "#F59E0B"), ("Search", 22, "#10B981"), ("Referral", 13, "#F43F5E")];
+    let top_products = [
+        ("Áo Thun Modal AirDry", 420, "#6366F1"),
+        ("Áo Sơ Mi Non-Iron", 310, "#F59E0B"),
+        ("Áo Polo Raglan Flex", 268, "#10B981"),
+        ("Áo Khoác Worker", 145, "#F43F5E"),
+        ("Áo Thun Boxy Oversize", 98, "#8B5CF6"),
+    ];
+
+    let traffic_sources = [
+        ("Direct", 38, "#6366F1"),
+        ("Social", 27, "#F59E0B"),
+        ("Search", 22, "#10B981"),
+        ("Referral", 13, "#F43F5E"),
+    ];
 
     let monthly_data = [
-        ("Jan", 42.0_f64), ("Feb", 58.0), ("Mar", 51.0), ("Apr", 73.0),
-        ("May", 64.0), ("Jun", 88.0), ("Jul", 72.0), ("Aug", 95.0),
-        ("Sep", 84.0), ("Oct", 110.0), ("Nov", 98.0), ("Dec", 128.0),
+        ("Jan", 42.0_f64),
+        ("Feb", 58.0),
+        ("Mar", 51.0),
+        ("Apr", 73.0),
+        ("May", 64.0),
+        ("Jun", 88.0),
+        ("Jul", 72.0),
+        ("Aug", 95.0),
+        ("Sep", 84.0),
+        ("Oct", 110.0),
+        ("Nov", 98.0),
+        ("Dec", 128.0),
     ];
     let max_val = monthly_data.iter().map(|(_, v)| *v).fold(0.0_f64, f64::max);
 

@@ -8,7 +8,8 @@ members = [
     "crates/marketing",
     "crates/identify",
     "crates/ordering",
-    "crates/frontend"
+    "crates/frontend",
+    "crates/payment"
 ]
 
 [workspace.dependencies]
@@ -35,3 +36,8 @@ async-trait = "0.1"
 
 rust_decimal = { version = "1.40.0", features = ["db-postgres"] }
 redis = {version = "1.0.4", features = ["aio", "connection-manager", "tokio-comp"] }
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+serde_qs = "0.13"
+urlencoding = "2.1"

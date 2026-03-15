@@ -1,7 +1,7 @@
-use leptos::prelude::*;
-use leptos::either::Either;
 use crate::api::client::catalog as catalog_api;
 use crate::api::types::CreateCategoryRequest;
+use leptos::either::Either;
+use leptos::prelude::*;
 use uuid::Uuid;
 
 fn icon_plus() -> impl IntoView {
@@ -33,18 +33,17 @@ fn icon_trash() -> impl IntoView {
 
 #[component]
 pub fn AdminCategoriesPage() -> impl IntoView {
-    let categories_resource: LocalResource<Vec<crate::api::types::Category>> = LocalResource::new(move || {
-        async move { catalog_api::list_categories().await.unwrap_or_default() }
-    });
+    let categories_resource: LocalResource<Vec<crate::api::types::Category>> =
+        LocalResource::new(move || async move {
+            catalog_api::list_categories().await.unwrap_or_default()
+        });
 
     let (name, set_name) = signal(String::new());
     let (parent_id, set_parent_id) = signal(None::<Uuid>);
 
     let create_category_action = Action::new_local(move |req: &CreateCategoryRequest| {
         let req = req.clone();
-        async move {
-            catalog_api::create_category(req).await
-        }
+        async move { catalog_api::create_category(req).await }
     });
 
     let delete_category_action = Action::new_local(|id: &Uuid| {
@@ -159,7 +158,7 @@ pub fn AdminCategoriesPage() -> impl IntoView {
                                                         </div>
                                                     </div>
                                                     <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
+                                                        <button
                                                             class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                                             on:click=move |_| {
                                                                 delete_category_action.dispatch(cat_id);

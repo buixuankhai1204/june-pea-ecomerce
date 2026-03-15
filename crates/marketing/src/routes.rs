@@ -7,11 +7,9 @@ use std::sync::Arc;
 
 use crate::domain::model::Coupon;
 use crate::usecase::{
-    create_coupon::CreateCouponUsecase,
-    deactivate_coupon::DeactivateCouponUsecase,
-    list_coupons::ListCouponsUsecase,
+    create_coupon::CreateCouponUsecase, deactivate_coupon::DeactivateCouponUsecase,
+    delete_coupon::DeleteCouponUsecase, list_coupons::ListCouponsUsecase,
     validate_coupon::ValidateCouponUsecase,
-    delete_coupon::DeleteCouponUsecase,
 };
 
 #[derive(Clone)]
@@ -65,7 +63,10 @@ pub fn init() -> Router<MarketingUsecase> {
     Router::new()
         .route("/coupons", get(list_coupons_handler))
         .route("/coupons", post(create_coupon_handler))
-        .route("/coupons/{code}", axum::routing::delete(delete_coupon_handler))
+        .route(
+            "/coupons/{code}",
+            axum::routing::delete(delete_coupon_handler),
+        )
         .route("/coupons/{code}/validate", get(validate_coupon_handler))
         .route(
             "/coupons/{code}/deactivate",

@@ -1,8 +1,8 @@
-use std::sync::Arc;
-use uuid::Uuid;
 use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::model::ProductWithVariants;
 use shared::AppError;
+use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct GetProductByIdUsecase {
     repo: Arc<dyn CatalogRepository>,

@@ -41,9 +41,9 @@ pub fn AdminOrdersPage() -> impl IntoView {
     let (quantity, set_quantity) = signal(1);
     let (price, set_price) = signal(0i64);
 
-    let orders_resource: LocalResource<Result<Vec<crate::api::types::Order>, crate::api::types::ApiError>> = LocalResource::new(move || {
-        async move { list_all_orders().await }
-    });
+    let orders_resource: LocalResource<
+        Result<Vec<crate::api::types::Order>, crate::api::types::ApiError>,
+    > = LocalResource::new(move || async move { list_all_orders().await });
 
     let update_status_action = Action::new_local(|(id, status): &(Uuid, OrderStatus)| {
         let id = *id;
@@ -60,7 +60,7 @@ pub fn AdminOrdersPage() -> impl IntoView {
         ev.prevent_default();
         let customer_id = Uuid::parse_str(&customer_id_str.get()).ok();
         let variant_id = Uuid::parse_str(&variant_id_str.get()).ok();
-        
+
         if let Some(vid) = variant_id {
             create_order_action.dispatch(crate::api::types::PlaceOrderRequest {
                 customer_id,
@@ -75,7 +75,9 @@ pub fn AdminOrdersPage() -> impl IntoView {
     };
 
     Effect::new(move |_| {
-        if update_status_action.value().get().is_some() || create_order_action.value().get().is_some() {
+        if update_status_action.value().get().is_some()
+            || create_order_action.value().get().is_some()
+        {
             if create_order_action.value().get().is_some() {
                 set_show_create_modal.set(false);
             }
@@ -89,8 +91,8 @@ pub fn AdminOrdersPage() -> impl IntoView {
                 orders
                     .iter()
                     .filter(|o| {
-                        let status_match = active_tab.get() == "All"
-                            || o.status.to_string() == active_tab.get();
+                        let status_match =
+                            active_tab.get() == "All" || o.status.to_string() == active_tab.get();
                         let search_match = search_query.get().is_empty()
                             || o.id.to_string().contains(&search_query.get());
                         status_match && search_match
@@ -111,7 +113,7 @@ pub fn AdminOrdersPage() -> impl IntoView {
                     <h1 class="text-xl font-black text-gray-900">"Orders"</h1>
                     <p class="text-xs text-gray-400 mt-0.5">"Manage and track all customer orders"</p>
                 </div>
-                <button 
+                <button
                     on:click=move |_| set_show_create_modal.set(true)
                     class="flex items-center gap-1.5 bg-[#FCE300] hover:bg-yellow-400 text-gray-900 text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
@@ -139,9 +141,9 @@ pub fn AdminOrdersPage() -> impl IntoView {
                     <div class="flex items-center gap-2">
                         <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 w-44">
                             <span class="text-gray-400">{icon_search()}</span>
-                            <input 
-                                type="text" 
-                                placeholder="Search ID..." 
+                            <input
+                                type="text"
+                                placeholder="Search ID..."
                                 class="bg-transparent text-xs text-gray-700 outline-none w-full"
                                 on:input=move |ev| search_query.set(event_target_value(&ev))
                                 prop:value=search_query
@@ -199,7 +201,7 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                                 </td>
                                                 <td class="px-4 py-3.5 text-right">
                                                     <div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
+                                                        <button
                                                             class="text-emerald-600 hover:text-emerald-900 font-bold cursor-pointer"
                                                             on:click=move |_| {
                                                                 update_status_action.dispatch((o_id, OrderStatus::Completed));
@@ -207,7 +209,7 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                                         >
                                                             "Complete"
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             class="text-rose-600 hover:text-rose-900 font-bold cursor-pointer"
                                                             on:click=move |_| {
                                                                 update_status_action.dispatch((o_id, OrderStatus::Cancelled));
@@ -237,9 +239,9 @@ pub fn AdminOrdersPage() -> impl IntoView {
                         <form on:submit=on_create_submit class="p-6 space-y-4">
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Customer ID (Optional)"</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="UUID..." 
+                                <input
+                                    type="text"
+                                    placeholder="UUID..."
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                     on:input=move |ev| set_customer_id_str.set(event_target_value(&ev))
                                     prop:value=customer_id_str
@@ -247,10 +249,10 @@ pub fn AdminOrdersPage() -> impl IntoView {
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Variant ID"</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     required
-                                    placeholder="UUID..." 
+                                    placeholder="UUID..."
                                     class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                     on:input=move |ev| set_variant_id_str.set(event_target_value(&ev))
                                     prop:value=variant_id_str
@@ -259,8 +261,8 @@ pub fn AdminOrdersPage() -> impl IntoView {
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Quantity"</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         required
                                         min="1"
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
@@ -270,8 +272,8 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Price (₫)"</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         required
                                         class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
                                         on:input=move |ev| set_price.set(event_target_value(&ev).parse().unwrap_or(0))
@@ -280,14 +282,14 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                 </div>
                             </div>
                             <div class="flex gap-3 pt-4">
-                                <button 
+                                <button
                                     type="button"
                                     class="flex-1 px-6 py-3 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
                                     on:click=move |_| set_show_create_modal.set(false)
                                 >
                                     "Cancel"
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     class="flex-1 px-6 py-3 rounded-2xl bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold transition-all shadow-lg cursor-pointer"
                                 >

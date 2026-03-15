@@ -70,24 +70,68 @@ pub fn HomePage() -> impl IntoView {
     let subscribed = RwSignal::new(false);
 
     let categories = vec![
-        ("ÁO THUN", "Dẫn đầu công nghệ AirDry™", "from-slate-800 to-slate-700", "/products"),
-        ("ÁO SƠ MI", "Non-iron ít nhăn dễ ủi",    "from-stone-800 to-stone-700",  "/products"),
-        ("ÁO POLO",  "Bền phom mặc bền quanh năm","from-zinc-800 to-zinc-700",   "/products"),
-        ("ÁO KHOÁC", "Đa năng cho mọi hành trình", "from-neutral-800 to-neutral-700", "/products"),
+        (
+            "ÁO THUN",
+            "Dẫn đầu công nghệ AirDry™",
+            "from-slate-800 to-slate-700",
+            "/products",
+        ),
+        (
+            "ÁO SƠ MI",
+            "Non-iron ít nhăn dễ ủi",
+            "from-stone-800 to-stone-700",
+            "/products",
+        ),
+        (
+            "ÁO POLO",
+            "Bền phom mặc bền quanh năm",
+            "from-zinc-800 to-zinc-700",
+            "/products",
+        ),
+        (
+            "ÁO KHOÁC",
+            "Đa năng cho mọi hành trình",
+            "from-neutral-800 to-neutral-700",
+            "/products",
+        ),
     ];
 
     struct FeaturedProduct {
-        name:  &'static str,
+        name: &'static str,
         price: &'static str,
-        orig:  &'static str,
+        orig: &'static str,
         badge: &'static str,
-        slug:  &'static str,
+        slug: &'static str,
     }
     let featured = vec![
-        FeaturedProduct { name: "Áo Thun Modal AirDry™ Trắng",         price: "167.450 VND", orig: "197.000 VND", badge: "MỚI",  slug: "ao-thun" },
-        FeaturedProduct { name: "Áo Sơ Mi Non-Iron Non Branded Xanh",   price: "234.650 VND", orig: "277.000 VND", badge: "SALE", slug: "ao-so-mi" },
-        FeaturedProduct { name: "Áo Polo Raglan FlexFit™ Xám Nhạt",     price: "263.150 VND", orig: "297.000 VND", badge: "MỚI",  slug: "ao-polo" },
-        FeaturedProduct { name: "Áo Khoác Kaki DurableTex™ Xám",        price: "757.150 VND", orig: "797.000 VND", badge: "HOT",  slug: "ao-khoac" },
+        FeaturedProduct {
+            name: "Áo Thun Modal AirDry™ Trắng",
+            price: "167.450 VND",
+            orig: "197.000 VND",
+            badge: "MỚI",
+            slug: "ao-thun",
+        },
+        FeaturedProduct {
+            name: "Áo Sơ Mi Non-Iron Non Branded Xanh",
+            price: "234.650 VND",
+            orig: "277.000 VND",
+            badge: "SALE",
+            slug: "ao-so-mi",
+        },
+        FeaturedProduct {
+            name: "Áo Polo Raglan FlexFit™ Xám Nhạt",
+            price: "263.150 VND",
+            orig: "297.000 VND",
+            badge: "MỚI",
+            slug: "ao-polo",
+        },
+        FeaturedProduct {
+            name: "Áo Khoác Kaki DurableTex™ Xám",
+            price: "757.150 VND",
+            orig: "797.000 VND",
+            badge: "HOT",
+            slug: "ao-khoac",
+        },
     ];
 
     view! {

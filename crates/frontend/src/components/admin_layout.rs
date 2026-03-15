@@ -134,8 +134,8 @@ fn icon_chevron_down() -> impl IntoView {
 #[derive(Clone, Copy)]
 struct NavItem {
     label: &'static str,
-    href:  &'static str,
-    icon:  u8,
+    href: &'static str,
+    icon: u8,
 }
 
 fn nav_icon(id: u8) -> impl IntoView {
@@ -158,22 +158,64 @@ fn nav_icon(id: u8) -> impl IntoView {
 #[component]
 pub fn AdminLayout(children: Children) -> impl IntoView {
     let main_nav: Vec<NavItem> = vec![
-        NavItem { label: "Dashboard",          href: "/admin",          icon: 0 },
-        NavItem { label: "Product Catalog",    href: "/admin/catalog",  icon: 1 },
-        NavItem { label: "Categories",         href: "/admin/categories", icon: 5 },
-        NavItem { label: "Inventory & Stock",  href: "/admin/stock",    icon: 2 },
-        NavItem { label: "Orders",             href: "/admin/orders",   icon: 1 },
-        NavItem { label: "Staff Management",   href: "/admin/staff",    icon: 3 },
-        NavItem { label: "Payment & Invoices", href: "/admin/payments", icon: 4 },
+        NavItem {
+            label: "Dashboard",
+            href: "/admin",
+            icon: 0,
+        },
+        NavItem {
+            label: "Product Catalog",
+            href: "/admin/catalog",
+            icon: 1,
+        },
+        NavItem {
+            label: "Categories",
+            href: "/admin/categories",
+            icon: 5,
+        },
+        NavItem {
+            label: "Inventory & Stock",
+            href: "/admin/stock",
+            icon: 2,
+        },
+        NavItem {
+            label: "Orders",
+            href: "/admin/orders",
+            icon: 1,
+        },
+        NavItem {
+            label: "Staff Management",
+            href: "/admin/staff",
+            icon: 3,
+        },
+        NavItem {
+            label: "Payment & Invoices",
+            href: "/admin/payments",
+            icon: 4,
+        },
     ];
     let engage_nav: Vec<NavItem> = vec![
-        NavItem { label: "Promotions",          href: "/admin/promotions",   icon: 5 },
-        NavItem { label: "Memberships",         href: "/admin/memberships",  icon: 6 },
-        NavItem { label: "Reports & Analytics", href: "/admin/reports",      icon: 7 },
+        NavItem {
+            label: "Promotions",
+            href: "/admin/promotions",
+            icon: 5,
+        },
+        NavItem {
+            label: "Memberships",
+            href: "/admin/memberships",
+            icon: 6,
+        },
+        NavItem {
+            label: "Reports & Analytics",
+            href: "/admin/reports",
+            icon: 7,
+        },
     ];
-    let other_nav: Vec<NavItem> = vec![
-        NavItem { label: "Settings", href: "/admin/settings", icon: 8 },
-    ];
+    let other_nav: Vec<NavItem> = vec![NavItem {
+        label: "Settings",
+        href: "/admin/settings",
+        icon: 8,
+    }];
 
     let location = use_location();
 

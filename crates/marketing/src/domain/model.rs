@@ -26,7 +26,7 @@ impl Coupon {
                 "Max uses cannot be negative".to_string(),
             ));
         }
-        
+
         Ok(Self {
             id: Uuid::new_v4(),
             code,
@@ -44,7 +44,9 @@ impl Coupon {
 
     pub fn increment_usage(&mut self) -> Result<(), AppError> {
         if !self.is_valid() {
-            return Err(AppError::Validation("Coupon is not valid or usage limit exceeded".to_string()));
+            return Err(AppError::Validation(
+                "Coupon is not valid or usage limit exceeded".to_string(),
+            ));
         }
         self.current_uses += 1;
         Ok(())
@@ -52,7 +54,9 @@ impl Coupon {
 
     pub fn deactivate(&mut self) -> Result<(), AppError> {
         if !self.is_active {
-            return Err(AppError::Validation("Coupon is already deactivated".to_string()));
+            return Err(AppError::Validation(
+                "Coupon is already deactivated".to_string(),
+            ));
         }
         self.is_active = false;
         Ok(())

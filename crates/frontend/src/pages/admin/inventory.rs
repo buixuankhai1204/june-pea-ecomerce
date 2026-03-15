@@ -6,18 +6,15 @@ use leptos::prelude::*;
 pub fn AdminInventoryPage() -> impl IntoView {
     let (variant_id_str, set_variant_id_str) = signal(String::new());
     let (quantity, set_quantity) = signal(0);
-    
-    let stocks: LocalResource<Vec<crate::api::types::StockResponse>> = LocalResource::new(move || {
-        async move {
+
+    let stocks: LocalResource<Vec<crate::api::types::StockResponse>> =
+        LocalResource::new(move || async move {
             inventory_api::list_all_stocks().await.unwrap_or_default()
-        }
-    });
+        });
 
     let update_stock = Action::new_local(|req: &StockUpdate| {
         let req = req.clone();
-        async move {
-            inventory_api::update_stock(req).await
-        }
+        async move { inventory_api::update_stock(req).await }
     });
 
     let on_apply = move |_| {
@@ -53,35 +50,35 @@ pub fn AdminInventoryPage() -> impl IntoView {
                         </div>
                         <h2 class="text-lg font-bold text-gray-800">"Update Stock"</h2>
                         <p class="text-xs text-gray-500">"Set absolute stock levels for a specific variant ID."</p>
-                        
+
                         <div class="space-y-4 pt-2">
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 px-1">"Variant ID"</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     prop:value=variant_id_str
                                     on:input=move |ev| set_variant_id_str.set(event_target_value(&ev))
-                                    placeholder="UUID..." 
-                                    class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#FCE300] outline-none transition-all" 
+                                    placeholder="UUID..."
+                                    class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#FCE300] outline-none transition-all"
                                 />
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 px-1">"New Level"</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     prop:value=quantity
                                     on:input=move |ev| set_quantity.set(event_target_value(&ev).parse().unwrap_or(0))
-                                    placeholder="0" 
-                                    class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#FCE300] outline-none transition-all" 
+                                    placeholder="0"
+                                    class="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#FCE300] outline-none transition-all"
                                 />
                             </div>
-                            <button 
+                            <button
                                 on:click=on_apply
                                 class="w-full bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer mt-2"
                             >
                                 "Apply Update"
                             </button>
-                            
+
                             {move || update_stock.value().get().map(|res| match res {
                                 Ok(_) => view! { <p class="text-xs text-emerald-600 font-bold bg-emerald-50 p-2 rounded-lg">"✓ Stock updated!"</p> }.into_any(),
                                 Err(e) => view! { <p class="text-xs text-red-500 font-bold bg-red-50 p-2 rounded-lg">{format!("Error: {}", e)}</p> }.into_any(),
@@ -95,7 +92,7 @@ pub fn AdminInventoryPage() -> impl IntoView {
                     <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
                             <h3 class="text-sm font-bold text-gray-800">"All Variant Stock Levels"</h3>
-                            <button 
+                            <button
                                 on:click=move |_| stocks.refetch()
                                 class="text-gray-400 hover:text-gray-600"
                             >

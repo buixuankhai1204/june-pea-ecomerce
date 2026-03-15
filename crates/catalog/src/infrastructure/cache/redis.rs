@@ -1,8 +1,8 @@
+use crate::domain::cache::CatalogCache;
+use crate::domain::model::ProductWithVariants;
 use async_trait::async_trait;
 use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
-use crate::domain::cache::CatalogCache;
-use crate::domain::model::ProductWithVariants;
 use shared::AppError;
 
 pub struct RedisCatalogCache {
@@ -12,10 +12,10 @@ pub struct RedisCatalogCache {
 
 impl RedisCatalogCache {
     pub async fn new(redis_url: &str) -> Result<Self, AppError> {
-        let client = redis::Client::open(redis_url)
-            .map_err(|_e| AppError::InternalServerError)?;
+        let client = redis::Client::open(redis_url).map_err(|_e| AppError::InternalServerError)?;
 
-        let manager = ConnectionManager::new(client).await
+        let manager = ConnectionManager::new(client)
+            .await
             .map_err(|_e| AppError::InternalServerError)?;
 
         Ok(Self {
@@ -31,13 +31,15 @@ impl CatalogCache for RedisCatalogCache {
         let key = format!("catalog:product:{}", slug);
         let mut conn = self.connection_manager.clone();
 
-        let cached_data: Option<String> = conn.get(&key).await
+        let cached_data: Option<String> = conn
+            .get(&key)
+            .await
             .map_err(|_e| AppError::InternalServerError)?;
 
         match cached_data {
             Some(json) => {
-                let product = serde_json::from_str(&json)
-                    .map_err(|_e| AppError::InternalServerError)?;
+                let product =
+                    serde_json::from_str(&json).map_err(|_e| AppError::InternalServerError)?;
                 Ok(Some(product))
             }
             None => Ok(None),
@@ -48,11 +50,12 @@ impl CatalogCache for RedisCatalogCache {
         let key = format!("catalog:product:{}", slug);
         let mut conn = self.connection_manager.clone();
 
-        let json = serde_json::to_string(data)
-            .map_err(|_e| AppError::InternalServerError)?;
+        let json = serde_json::to_string(data).map_err(|_e| AppError::InternalServerError)?;
 
         // Use SETEX logic: Set value with expiration
-        let _: () = conn.set_ex(&key, json, self.ttl_seconds).await
+        let _: () = conn
+            .set_ex(&key, json, self.ttl_seconds)
+            .await
             .map_err(|_e| AppError::InternalServerError)?;
 
         Ok(())
@@ -62,7 +65,9 @@ impl CatalogCache for RedisCatalogCache {
         let key = format!("catalog:product:{}", slug);
         let mut conn = self.connection_manager.clone();
 
-        let _: () = conn.del(&key).await
+        let _: () = conn
+            .del(&key)
+            .await
             .map_err(|_e| AppError::InternalServerError)?;
 
         Ok(())

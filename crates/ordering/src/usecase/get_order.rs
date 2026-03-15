@@ -15,13 +15,13 @@ impl GetOrderUsecase {
 
     pub async fn execute(&self, order_id: Uuid) -> Result<Order, AppError> {
         let repo = self.repo.clone();
-        
+
         let fetched_order = Arc::new(tokio::sync::Mutex::new(None));
         let fetched_order_clone = fetched_order.clone();
 
         self.uow
             .run_atomic(Box::new(move |exec| {
-                Box::pin(async move { 
+                Box::pin(async move {
                     let order = repo.get_order_by_id(exec, order_id).await?;
                     *fetched_order_clone.lock().await = Some(order);
                     Ok(())

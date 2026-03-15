@@ -19,14 +19,21 @@ pub fn CheckoutPage() -> impl IntoView {
 
     let on_apply_coupon = move |_: web_sys::MouseEvent| {
         let code = coupon_input.get_untracked();
-        if code.is_empty() { return; }
-        
+        if code.is_empty() {
+            return;
+        }
+
         coupon_loading.set(true);
         coupon_error.set(String::new());
-        
+
         let req = crate::api::types::ValidateCouponRequest { code: code.clone() };
         wasm_bindgen_futures::spawn_local(async move {
-            match client::post::<crate::api::types::ValidateCouponResponse, _>("/api/v1/marketing/coupons/validate", &req).await {
+            match client::post::<crate::api::types::ValidateCouponResponse, _>(
+                "/api/v1/marketing/coupons/validate",
+                &req,
+            )
+            .await
+            {
                 Ok(resp) => {
                     if resp.is_valid {
                         applied_coupon.set(Some(resp));
@@ -145,7 +152,7 @@ pub fn CheckoutPage() -> impl IntoView {
                 <div class="space-y-6">
                     <div class="bg-gray-50 p-8 rounded-sm space-y-6">
                         <h3 class="text-lg font-bold text-gray-900 uppercase tracking-wide">"Đơn hàng của bạn"</h3>
-                        
+
                         <div class="max-h-[300px] overflow-y-auto pr-2 space-y-4">
                             {move || {
                                 let items = cart.items.get();
@@ -169,14 +176,14 @@ pub fn CheckoutPage() -> impl IntoView {
                         <div class="space-y-3">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">"Mã giảm giá"</label>
                             <div class="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    class="flex-1 px-4 py-2 bg-white border border-gray-200 outline-none focus:border-black rounded-sm text-sm" 
+                                <input
+                                    type="text"
+                                    class="flex-1 px-4 py-2 bg-white border border-gray-200 outline-none focus:border-black rounded-sm text-sm"
                                     placeholder="JUNEPEA10"
                                     prop:value=move || coupon_input.get()
                                     on:input=move |e| coupon_input.set(event_target_value(&e))
                                 />
-                                <button 
+                                <button
                                     class="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors disabled:opacity-50 cursor-pointer"
                                     disabled=move || coupon_loading.get()
                                     on:click=on_apply_coupon
@@ -195,19 +202,19 @@ pub fn CheckoutPage() -> impl IntoView {
                             {move || {
                                 let c = applied_coupon.get();
                                 if let Some(c) = c {
-                                    view! { 
+                                    view! {
                                         <div class="flex items-center justify-between text-xs text-emerald-600 bg-emerald-50 px-3 py-2 rounded-sm border border-emerald-100">
                                             <div class="flex items-center gap-1.5 font-bold">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                                                 {format!("Đã áp dụng: {}", c.code)}
                                             </div>
-                                            <button 
+                                            <button
                                                 class="text-gray-400 hover:text-red-500 cursor-pointer"
                                                 on:click=move |_| applied_coupon.set(None)
                                             >
                                                 "Gỡ bỏ"
                                             </button>
-                                        </div> 
+                                        </div>
                                     }.into_any()
                                 } else {
                                     view! { <div></div> }.into_any()

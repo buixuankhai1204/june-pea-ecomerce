@@ -52,7 +52,7 @@ pub fn CartPage() -> impl IntoView {
                         let delivery = 0; // Free shipping in Yame inspired
                         let discount = 0;
                         let total = subtotal + delivery - discount;
-                        
+
                         view! {
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 xl:gap-14 items-start">
                                 <div class="lg:col-span-2 space-y-4">
@@ -73,7 +73,7 @@ pub fn CartPage() -> impl IntoView {
                                                         </svg>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div class="flex-1 min-w-0 flex flex-col h-full justify-between">
                                                     <div class="flex justify-between items-start gap-4">
                                                         <div>
@@ -82,7 +82,7 @@ pub fn CartPage() -> impl IntoView {
                                                         </div>
                                                         <p class="font-semibold text-black text-sm whitespace-nowrap">{format_cents(item.line_total())}</p>
                                                     </div>
-                                                    
+
                                                     <div class="flex items-end justify-between w-full mt-4">
                                                         <div class="inline-flex items-center border border-gray-300 rounded-sm">
                                                             <button
@@ -119,7 +119,7 @@ pub fn CartPage() -> impl IntoView {
                                 <div class="lg:col-span-1">
                                     <div class="bg-gray-50 rounded-sm p-6 sticky top-4 border border-gray-200">
                                         <h2 class="text-lg font-medium text-black mb-5">"Tóm tắt đơn hàng"</h2>
-                                        
+
                                         <div class="space-y-3 text-sm text-gray-600 mb-5 pb-5 border-b border-gray-200">
                                             <div class="flex justify-between items-center">
                                                 <span>"Tạm tính"</span>
@@ -130,7 +130,7 @@ pub fn CartPage() -> impl IntoView {
                                                 <span class="font-medium text-black">"Miễn phí"</span>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="flex justify-between items-center mb-6">
                                             <span class="font-medium text-black text-base">"Tổng cộng"</span>
                                             <span class="text-xl font-semibold text-black">{format_cents(total)}</span>

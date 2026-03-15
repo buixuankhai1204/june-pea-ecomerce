@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::domain::catalog_repository::CatalogRepository;
 use shared::AppError;
+use std::sync::Arc;
 
 pub struct ListCategoriesUsecase {
     repo: Arc<dyn CatalogRepository>,

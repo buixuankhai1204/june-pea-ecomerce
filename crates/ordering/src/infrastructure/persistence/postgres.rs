@@ -135,10 +135,7 @@ impl OrderRepository for PostgresOrderRepository {
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
-    async fn list_all_orders(
-        &self,
-        exec: &mut dyn DbExecutor,
-    ) -> Result<Vec<Order>, AppError> {
+    async fn list_all_orders(&self, exec: &mut dyn DbExecutor) -> Result<Vec<Order>, AppError> {
         let executor = SqlxExecutor::from_executor(exec);
 
         let rows = sqlx::query_as::<_, OrderRow>(

@@ -117,12 +117,19 @@ fn sparkline(points: &[f64], color: &str, fill: &str) -> impl IntoView {
     let range = (max - min).max(1.0);
     let n = points.len();
 
-    let path: String = points.iter().enumerate().map(|(i, &v)| {
-        let x = i as f64 / (n - 1) as f64 * w;
-        let y = h - (v - min) / range * (h - 6.0) - 3.0;
-        if i == 0 { format!("M {:.1} {:.1}", x, y) }
-        else       { format!(" L {:.1} {:.1}", x, y) }
-    }).collect();
+    let path: String = points
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| {
+            let x = i as f64 / (n - 1) as f64 * w;
+            let y = h - (v - min) / range * (h - 6.0) - 3.0;
+            if i == 0 {
+                format!("M {:.1} {:.1}", x, y)
+            } else {
+                format!(" L {:.1} {:.1}", x, y)
+            }
+        })
+        .collect();
 
     let area = format!("{} L {:.1} {:.1} L 0 {:.1} Z", path, w, h, h);
 
@@ -143,18 +150,21 @@ fn donut_chart(segments: Vec<(&'static str, f64, &'static str)>) -> impl IntoVie
     let total: f64 = segments.iter().map(|(_, v, _)| v).sum();
     let _cx = 60.0_f64;
     let _cy = 60.0_f64;
-    let r  = 48.0_f64;
+    let r = 48.0_f64;
     let circumference = 2.0 * std::f64::consts::PI * r;
 
     let mut offset = 0.0_f64;
-    let arcs: Vec<_> = segments.iter().map(|(label, val, color)| {
-        let fraction = val / total;
-        let dash = fraction * circumference;
-        let gap  = circumference - dash;
-        let rotate = offset / total * 360.0 - 90.0;
-        offset += val;
-        (*label, *val, *color, dash, gap, rotate)
-    }).collect();
+    let arcs: Vec<_> = segments
+        .iter()
+        .map(|(label, val, color)| {
+            let fraction = val / total;
+            let dash = fraction * circumference;
+            let gap = circumference - dash;
+            let rotate = offset / total * 360.0 - 90.0;
+            offset += val;
+            (*label, *val, *color, dash, gap, rotate)
+        })
+        .collect();
 
     view! {
         <div class="flex items-center gap-6">
@@ -243,26 +253,26 @@ fn bar_chart(data: Vec<(&'static str, f64, f64)>) -> impl IntoView {
 // ─── Stat card ──────────────────────────────────────────────────────────────
 
 struct StatCard {
-    label:  &'static str,
-    value:  &'static str,
-    delta:  f64,
-    sub:    &'static str,
-    color:  &'static str,   // text-color class for Tailwind
-    bg:     &'static str,   // bg-color class
+    label: &'static str,
+    value: &'static str,
+    delta: f64,
+    sub: &'static str,
+    color: &'static str, // text-color class for Tailwind
+    bg: &'static str,    // bg-color class
     points: Vec<f64>,
     spark_color: &'static str,
-    spark_fill:  &'static str,
+    spark_fill: &'static str,
 }
 
 // ─── Orders data ────────────────────────────────────────────────────────────
 
 struct Order {
-    id:        &'static str,
-    customer:  &'static str,
-    product:   &'static str,
-    amount:    &'static str,
-    status:    &'static str,
-    date:      &'static str,
+    id: &'static str,
+    customer: &'static str,
+    product: &'static str,
+    amount: &'static str,
+    status: &'static str,
+    date: &'static str,
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────
@@ -276,61 +286,111 @@ pub fn DashboardPage() -> impl IntoView {
             label: "Doanh thu",
             value: "₫128.4M",
             delta: 12.5,
-            sub:   "so với tháng trước",
+            sub: "so với tháng trước",
             color: "text-blue-400",
-            bg:    "bg-blue-500/10",
-            points: vec![40.0, 55.0, 42.0, 68.0, 58.0, 72.0, 85.0, 91.0, 78.0, 95.0, 88.0, 110.0],
+            bg: "bg-blue-500/10",
+            points: vec![
+                40.0, 55.0, 42.0, 68.0, 58.0, 72.0, 85.0, 91.0, 78.0, 95.0, 88.0, 110.0,
+            ],
             spark_color: "#3B82F6",
-            spark_fill:  "#3B82F6",
+            spark_fill: "#3B82F6",
         },
         StatCard {
             label: "Đơn hàng",
             value: "2,847",
             delta: 8.1,
-            sub:   "so với tháng trước",
+            sub: "so với tháng trước",
             color: "text-emerald-400",
-            bg:    "bg-emerald-500/10",
-            points: vec![20.0, 35.0, 28.0, 45.0, 40.0, 55.0, 48.0, 62.0, 58.0, 70.0, 65.0, 80.0],
+            bg: "bg-emerald-500/10",
+            points: vec![
+                20.0, 35.0, 28.0, 45.0, 40.0, 55.0, 48.0, 62.0, 58.0, 70.0, 65.0, 80.0,
+            ],
             spark_color: "#10B981",
-            spark_fill:  "#10B981",
+            spark_fill: "#10B981",
         },
         StatCard {
             label: "Khách hàng",
             value: "14,920",
             delta: -3.2,
-            sub:   "so với tháng trước",
+            sub: "so với tháng trước",
             color: "text-amber-400",
-            bg:    "bg-amber-500/10",
-            points: vec![80.0, 75.0, 82.0, 78.0, 70.0, 65.0, 72.0, 68.0, 60.0, 58.0, 55.0, 52.0],
+            bg: "bg-amber-500/10",
+            points: vec![
+                80.0, 75.0, 82.0, 78.0, 70.0, 65.0, 72.0, 68.0, 60.0, 58.0, 55.0, 52.0,
+            ],
             spark_color: "#F59E0B",
-            spark_fill:  "#F59E0B",
+            spark_fill: "#F59E0B",
         },
         StatCard {
             label: "Sản phẩm bán",
             value: "6,312",
             delta: 5.7,
-            sub:   "so với tháng trước",
+            sub: "so với tháng trước",
             color: "text-violet-400",
-            bg:    "bg-violet-500/10",
-            points: vec![30.0, 38.0, 33.0, 50.0, 44.0, 58.0, 52.0, 65.0, 60.0, 75.0, 68.0, 82.0],
+            bg: "bg-violet-500/10",
+            points: vec![
+                30.0, 38.0, 33.0, 50.0, 44.0, 58.0, 52.0, 65.0, 60.0, 75.0, 68.0, 82.0,
+            ],
             spark_color: "#8B5CF6",
-            spark_fill:  "#8B5CF6",
+            spark_fill: "#8B5CF6",
         },
     ];
 
     let orders = vec![
-        Order { id: "#ORD-8821", customer: "Nguyễn Văn A",  product: "Áo Thun Modal AirDry Trắng",  amount: "₫167.450", status: "Đã giao",     date: "11/03/2026" },
-        Order { id: "#ORD-8820", customer: "Trần Thị B",    product: "Áo Sơ Mi Non-Iron Xanh",      amount: "₫234.650", status: "Đang giao",    date: "11/03/2026" },
-        Order { id: "#ORD-8819", customer: "Lê Văn C",      product: "Áo Khoác Worker Xám Nhạt",    amount: "₫757.150", status: "Xử lý",        date: "10/03/2026" },
-        Order { id: "#ORD-8818", customer: "Phạm Thị D",    product: "Áo Polo Raglan FlexFit",      amount: "₫263.150", status: "Đã giao",     date: "10/03/2026" },
-        Order { id: "#ORD-8817", customer: "Hoàng Văn E",   product: "Áo Thun Boxy AirDry Đen",     amount: "₫263.150", status: "Huỷ",          date: "09/03/2026" },
-        Order { id: "#ORD-8816", customer: "Đặng Thị F",    product: "Áo Sơ Mi Modal Trắng",        amount: "₫167.450", status: "Đã giao",     date: "09/03/2026" },
+        Order {
+            id: "#ORD-8821",
+            customer: "Nguyễn Văn A",
+            product: "Áo Thun Modal AirDry Trắng",
+            amount: "₫167.450",
+            status: "Đã giao",
+            date: "11/03/2026",
+        },
+        Order {
+            id: "#ORD-8820",
+            customer: "Trần Thị B",
+            product: "Áo Sơ Mi Non-Iron Xanh",
+            amount: "₫234.650",
+            status: "Đang giao",
+            date: "11/03/2026",
+        },
+        Order {
+            id: "#ORD-8819",
+            customer: "Lê Văn C",
+            product: "Áo Khoác Worker Xám Nhạt",
+            amount: "₫757.150",
+            status: "Xử lý",
+            date: "10/03/2026",
+        },
+        Order {
+            id: "#ORD-8818",
+            customer: "Phạm Thị D",
+            product: "Áo Polo Raglan FlexFit",
+            amount: "₫263.150",
+            status: "Đã giao",
+            date: "10/03/2026",
+        },
+        Order {
+            id: "#ORD-8817",
+            customer: "Hoàng Văn E",
+            product: "Áo Thun Boxy AirDry Đen",
+            amount: "₫263.150",
+            status: "Huỷ",
+            date: "09/03/2026",
+        },
+        Order {
+            id: "#ORD-8816",
+            customer: "Đặng Thị F",
+            product: "Áo Sơ Mi Modal Trắng",
+            amount: "₫167.450",
+            status: "Đã giao",
+            date: "09/03/2026",
+        },
     ];
 
     let top_cats = vec![
-        ("Áo Thun",  420.0, 380.0),
+        ("Áo Thun", 420.0, 380.0),
         ("Áo Sơ Mi", 310.0, 295.0),
-        ("Áo Polo",  268.0, 270.0),
+        ("Áo Polo", 268.0, 270.0),
         ("Áo Khoác", 145.0, 130.0),
     ];
 

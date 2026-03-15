@@ -30,12 +30,54 @@ struct Supplier {
 #[component]
 pub fn AdminSuppliersPage() -> impl IntoView {
     let suppliers = vec![
-        Supplier { name: "Vải Đẹp Việt Nam",     contact: "contact@vaidepc.vn",     location: "TP. Hồ Chí Minh", products: 128, deliveries: 14, status: "Active" },
-        Supplier { name: "Textile World Co.",     contact: "info@textileworld.com",   location: "Bình Dương",       products: 84,  deliveries: 8,  status: "Active" },
-        Supplier { name: "Sợi Bông Miền Nam",     contact: "sales@soibong.vn",        location: "Đồng Nai",         products: 56,  deliveries: 3,  status: "Pending" },
-        Supplier { name: "Korean Fashion Supply", contact: "kr@fashionsupply.kr",    location: "Seoul, Korea",     products: 212, deliveries: 22, status: "Active" },
-        Supplier { name: "Premium Fabric Ltd.",   contact: "orders@premiumfabric.com",location: "Hà Nội",           products: 67,  deliveries: 5,  status: "Inactive" },
-        Supplier { name: "Eco Yarn Traders",      contact: "hello@ecoyarn.io",        location: "Đà Nẵng",          products: 38,  deliveries: 2,  status: "Active" },
+        Supplier {
+            name: "Vải Đẹp Việt Nam",
+            contact: "contact@vaidepc.vn",
+            location: "TP. Hồ Chí Minh",
+            products: 128,
+            deliveries: 14,
+            status: "Active",
+        },
+        Supplier {
+            name: "Textile World Co.",
+            contact: "info@textileworld.com",
+            location: "Bình Dương",
+            products: 84,
+            deliveries: 8,
+            status: "Active",
+        },
+        Supplier {
+            name: "Sợi Bông Miền Nam",
+            contact: "sales@soibong.vn",
+            location: "Đồng Nai",
+            products: 56,
+            deliveries: 3,
+            status: "Pending",
+        },
+        Supplier {
+            name: "Korean Fashion Supply",
+            contact: "kr@fashionsupply.kr",
+            location: "Seoul, Korea",
+            products: 212,
+            deliveries: 22,
+            status: "Active",
+        },
+        Supplier {
+            name: "Premium Fabric Ltd.",
+            contact: "orders@premiumfabric.com",
+            location: "Hà Nội",
+            products: 67,
+            deliveries: 5,
+            status: "Inactive",
+        },
+        Supplier {
+            name: "Eco Yarn Traders",
+            contact: "hello@ecoyarn.io",
+            location: "Đà Nẵng",
+            products: 38,
+            deliveries: 2,
+            status: "Active",
+        },
     ];
 
     view! {

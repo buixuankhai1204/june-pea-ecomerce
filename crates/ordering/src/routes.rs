@@ -9,9 +9,8 @@ use uuid::Uuid;
 use crate::domain::model::{NewOrderItem, Order};
 use crate::usecase::{
     cancel_order::CancelOrderUsecase, get_order::GetOrderUsecase,
-    list_orders::ListOrdersUsecase, place_order::PlaceOrderUsecase,
-    update_order_status::UpdateOrderStatusUsecase,
-    list_all_orders::ListAllOrdersUsecase,
+    list_all_orders::ListAllOrdersUsecase, list_orders::ListOrdersUsecase,
+    place_order::PlaceOrderUsecase, update_order_status::UpdateOrderStatusUsecase,
 };
 
 #[derive(Clone)]
@@ -70,9 +69,18 @@ impl OrderingUsecase {
 
 pub fn init() -> Router<OrderingUsecase> {
     Router::new()
-        .route("/orders", post(place_order_handler).get(list_all_orders_handler))
-        .route("/orders/{id}", get(get_order_handler).delete(cancel_order_handler))
-        .route("/orders/{id}/status", axum::routing::patch(update_order_status_handler))
+        .route(
+            "/orders",
+            post(place_order_handler).get(list_all_orders_handler),
+        )
+        .route(
+            "/orders/{id}",
+            get(get_order_handler).delete(cancel_order_handler),
+        )
+        .route(
+            "/orders/{id}/status",
+            axum::routing::patch(update_order_status_handler),
+        )
         .route("/orders/customer/{customer_id}", get(list_orders_handler))
 }
 
@@ -149,4 +157,3 @@ async fn update_order_status_handler(
     usecase.execute(id, body.status).await?;
     Ok(Json(true))
 }
-

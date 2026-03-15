@@ -27,7 +27,11 @@ fn Navbar() -> impl IntoView {
 
     let is_logged_in = move || auth.user.get().is_some();
     let cart_count = move || {
-        cart.items.get().iter().map(|i| i.quantity as usize).sum::<usize>()
+        cart.items
+            .get()
+            .iter()
+            .map(|i| i.quantity as usize)
+            .sum::<usize>()
     };
 
     view! {

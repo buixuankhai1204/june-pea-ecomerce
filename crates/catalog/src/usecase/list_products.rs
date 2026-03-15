@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::domain::catalog_repository::CatalogRepository;
 use crate::domain::model::PaginatedProducts;
 use shared::AppError;
+use std::sync::Arc;
 
 pub struct ListProductsUsecase {
     repo: Arc<dyn CatalogRepository>,

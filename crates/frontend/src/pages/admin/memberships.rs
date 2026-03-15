@@ -20,19 +20,79 @@ struct Member {
 #[component]
 pub fn AdminMembershipsPage() -> impl IntoView {
     let members = vec![
-        Member { name: "Nguyễn Văn An",   email: "nva@email.com",  tier: "Gold",     joined: "Jan 2025", spent: "₫8.2M" },
-        Member { name: "Trần Thị Bình",   email: "ttb@email.com",  tier: "Platinum", joined: "Dec 2024", spent: "₫14.7M" },
-        Member { name: "Lê Hoàng Cường",  email: "lhc@email.com",  tier: "Silver",   joined: "Mar 2025", spent: "₫3.1M" },
-        Member { name: "Phạm Thu Dung",   email: "ptd@email.com",  tier: "Bronze",   joined: "Feb 2026", spent: "₫890k" },
-        Member { name: "Hoàng Minh Đức",  email: "hmd@email.com",  tier: "Gold",     joined: "Jun 2024", spent: "₫9.5M" },
-        Member { name: "Vũ Thị Hoa",      email: "vth@email.com",  tier: "Silver",   joined: "Sep 2025", spent: "₫2.4M" },
+        Member {
+            name: "Nguyễn Văn An",
+            email: "nva@email.com",
+            tier: "Gold",
+            joined: "Jan 2025",
+            spent: "₫8.2M",
+        },
+        Member {
+            name: "Trần Thị Bình",
+            email: "ttb@email.com",
+            tier: "Platinum",
+            joined: "Dec 2024",
+            spent: "₫14.7M",
+        },
+        Member {
+            name: "Lê Hoàng Cường",
+            email: "lhc@email.com",
+            tier: "Silver",
+            joined: "Mar 2025",
+            spent: "₫3.1M",
+        },
+        Member {
+            name: "Phạm Thu Dung",
+            email: "ptd@email.com",
+            tier: "Bronze",
+            joined: "Feb 2026",
+            spent: "₫890k",
+        },
+        Member {
+            name: "Hoàng Minh Đức",
+            email: "hmd@email.com",
+            tier: "Gold",
+            joined: "Jun 2024",
+            spent: "₫9.5M",
+        },
+        Member {
+            name: "Vũ Thị Hoa",
+            email: "vth@email.com",
+            tier: "Silver",
+            joined: "Sep 2025",
+            spent: "₫2.4M",
+        },
     ];
 
     let tiers = [
-        ("Bronze",   "320",  "₫0 – ₫2M",     "#CD7F32", "bg-orange-50  border-orange-100"),
-        ("Silver",   "184",  "₫2M – ₫5M",    "#9CA3AF", "bg-gray-50    border-gray-200"),
-        ("Gold",     "97",   "₫5M – ₫15M",   "#F59E0B", "bg-amber-50   border-amber-100"),
-        ("Platinum", "28",   "₫15M+",         "#6366F1", "bg-indigo-50  border-indigo-100"),
+        (
+            "Bronze",
+            "320",
+            "₫0 – ₫2M",
+            "#CD7F32",
+            "bg-orange-50  border-orange-100",
+        ),
+        (
+            "Silver",
+            "184",
+            "₫2M – ₫5M",
+            "#9CA3AF",
+            "bg-gray-50    border-gray-200",
+        ),
+        (
+            "Gold",
+            "97",
+            "₫5M – ₫15M",
+            "#F59E0B",
+            "bg-amber-50   border-amber-100",
+        ),
+        (
+            "Platinum",
+            "28",
+            "₫15M+",
+            "#6366F1",
+            "bg-indigo-50  border-indigo-100",
+        ),
     ];
 
     view! {
