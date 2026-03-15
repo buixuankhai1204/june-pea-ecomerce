@@ -20,6 +20,7 @@ use sqlx::PgPool;
 use std::env;
 use std::sync::Arc;
 use tower_http;
+use tower_http::cors::AllowOrigin;
 use tracing::Level;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::FmtSubscriber;
@@ -203,6 +204,41 @@ async fn main() -> anyhow::Result<()> {
     let payment_ipn_router =
         payment::routes::init_ipn().with_state(payment_usecases.as_ref().clone());
 
+    let cors_origin = env::var("APP_URL")
+        .ok()
+        .and_then(|value| value.trim().parse::<HeaderValue>().ok())
+        .unwrap_or_else(|| {
+            env::var("RUST_ENV")
+                .ok()
+                .filter(|env| env == "production")
+                .and_then(|_| {
+                    "https://eloquent-patience-production.up.railway.app"
+                        .parse::<HeaderValue>()
+                        .ok()
+                })
+                .unwrap_or_else(|| {
+                    "http://localhost:8080"
+                        .parse::<HeaderValue>()
+                        .expect("valid default origin")
+                })
+        });
+
+    let cors_layer = tower_http::cors::CorsLayer::new()
+        .allow_origin(AllowOrigin::exact(cors_origin.clone()))
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+        ]);
+
     let state = AppState {
         auth_service: auth_usecases,
         catalog_service: catalog_usecases,
@@ -239,32 +275,7 @@ async fn main() -> anyhow::Result<()> {
             tower_http::services::ServeDir::new("dist")
                 .fallback(tower_http::services::ServeFile::new("dist/index.html")),
         )
-        .layer(
-            tower_http::cors::CorsLayer::new()
-                .allow_origin(
-                    "https://eloquent-patience-production.up.railway.app"
-                        .parse::<HeaderValue>()
-                        .unwrap(),
-                )
-                .allow_origin(
-                    "http://localhost:8080"
-                        .parse::<HeaderValue>()
-                        .unwrap(),
-                )
-                .allow_methods([
-                    axum::http::Method::GET,
-                    axum::http::Method::POST,
-                    axum::http::Method::PUT,
-                    axum::http::Method::PATCH,
-                    axum::http::Method::DELETE,
-                    axum::http::Method::OPTIONS,
-                ])
-                .allow_headers([
-                    axum::http::header::AUTHORIZATION,
-                    axum::http::header::CONTENT_TYPE,
-                    axum::http::header::ACCEPT,
-                ]),
-        )
+        .layer(cors_layer)
         .with_state(state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
