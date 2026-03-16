@@ -67,11 +67,14 @@ pub fn init() -> Router<MarketingUsecase> {
             "/coupons/{code}",
             axum::routing::delete(delete_coupon_handler),
         )
-        .route("/coupons/{code}/validate", get(validate_coupon_handler))
         .route(
             "/coupons/{code}/deactivate",
             patch(deactivate_coupon_handler),
         )
+}
+
+pub fn init_public() -> Router<MarketingUsecase> {
+    Router::new().route("/coupons/validate", post(validate_coupon_handler))
 }
 
 // --- Request / Response types ---
@@ -83,8 +86,14 @@ struct CreateCouponRequest {
     max_uses: i32,
 }
 
+#[derive(Debug, Deserialize)]
+struct ValidateCouponRequest {
+    code: String,
+}
+
 #[derive(Debug, Serialize)]
 struct ValidateCouponResponse {
+    code: String,
     is_valid: bool,
     discount_amount: i64,
 }
@@ -104,12 +113,13 @@ async fn create_coupon_handler(
 
 async fn validate_coupon_handler(
     State(state): State<MarketingUsecase>,
-    Path(code): Path<String>,
+    Json(body): Json<ValidateCouponRequest>,
 ) -> Result<Json<ValidateCouponResponse>, AppError> {
     let usecase = state.validate_coupon();
-    let coupon = usecase.execute(&code).await?;
+    let coupon = usecase.execute(&body.code).await?;
 
     Ok(Json(ValidateCouponResponse {
+        code: coupon.code,
         is_valid: true,
         discount_amount: coupon.discount_amount,
     }))

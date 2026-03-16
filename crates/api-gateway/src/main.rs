@@ -21,6 +21,7 @@ use std::env;
 use std::sync::Arc;
 use tower_http;
 use tower_http::cors::AllowOrigin;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::Level;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::FmtSubscriber;
@@ -196,6 +197,8 @@ async fn main() -> anyhow::Result<()> {
 
     let marketing_router =
         marketing::routes::init().with_state(marketing_usecases.as_ref().clone());
+    let marketing_public_router =
+        marketing::routes::init_public().with_state(marketing_usecases.as_ref().clone());
     let ordering_router = ordering::routes::init().with_state(ordering_usecases.as_ref().clone());
     let catalog_router = catalog::routes::init().with_state(catalog_usecases.as_ref().clone());
     let inventory_router =
@@ -203,28 +206,8 @@ async fn main() -> anyhow::Result<()> {
     let payment_router = payment::routes::init().with_state(payment_usecases.as_ref().clone());
     let payment_ipn_router =
         payment::routes::init_ipn().with_state(payment_usecases.as_ref().clone());
-
-    let cors_origin = env::var("APP_URL")
-        .ok()
-        .and_then(|value| value.trim().parse::<HeaderValue>().ok())
-        .unwrap_or_else(|| {
-            env::var("RUST_ENV")
-                .ok()
-                .filter(|env| env == "production")
-                .and_then(|_| {
-                    "https://eloquent-patience-production.up.railway.app"
-                        .parse::<HeaderValue>()
-                        .ok()
-                })
-                .unwrap_or_else(|| {
-                    "http://localhost:8080"
-                        .parse::<HeaderValue>()
-                        .expect("valid default origin")
-                })
-        });
-
     let cors_layer = tower_http::cors::CorsLayer::new()
-        .allow_origin(AllowOrigin::exact(cors_origin.clone()))
+        .allow_origin(Any)
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -258,7 +241,8 @@ async fn main() -> anyhow::Result<()> {
     let public_routes = Router::new()
         .nest("/api/v1/auth", init())
         .nest("/api/v1/catalog", catalog_router)
-        .nest("/api/v1/payment", payment_ipn_router);
+        .nest("/api/v1/payment", payment_ipn_router)
+        .nest("/api/v1/marketing", marketing_public_router);
 
     // Protected routes (auth required)
     let protected_routes = Router::new()

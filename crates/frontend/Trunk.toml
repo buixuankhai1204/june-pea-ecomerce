@@ -7,8 +7,5 @@ watch = ["src", "style", "index.html"]
 
 [[hooks]]
 stage = "pre_build"
-command = "npx"
-command_arguments = ["--yes", "tailwindcss", "-i", "style/input.css", "-o", "style/output.css", "--minify"]
-
-[[proxy]]
-backend = "https://june-pea-backend-production.up.railway.app:3000/api"
+command = "node"
+command_arguments = ["node_modules/tailwindcss/lib/cli.js", "-i", "style/input.css", "-o", "style/output.css", "--minify"]
