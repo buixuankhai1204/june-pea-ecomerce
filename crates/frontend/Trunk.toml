@@ -7,5 +7,5 @@ watch = ["src", "style", "index.html"]
 
 [[hooks]]
 stage = "pre_build"
-command = "node"
-command_arguments = ["node_modules/tailwindcss/lib/cli.js", "-i", "style/input.css", "-o", "style/output.css", "--minify"]
+command = "npx"
+command_arguments = ["tailwindcss", "-i", "style/input.css", "-o", "style/output.css", "--minify"]
