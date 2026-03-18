@@ -110,37 +110,41 @@ pub fn AdminInventoryPage() -> impl IntoView {
                                 </thead>
                                 <tbody class="divide-y divide-gray-50">
                                     <Suspense fallback=|| view! { <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400">"Loading stock data..."</td></tr> }>
-                                        {move || stocks.get().map(|list| {
-                                            if list.is_empty() {
-                                                view! { <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400 font-medium">"No stock records found"</td></tr> }.into_any()
-                                            } else {
-                                                list.iter().map(|s| {
-                                                    let vid = s.variant_id;
-                                                    let (status, color) = if s.quantity == 0 {
-                                                        ("Out of Stock", "text-red-500 bg-red-50")
-                                                    } else if s.quantity < 10 {
-                                                        ("Low Stock", "text-amber-500 bg-amber-50")
-                                                    } else {
-                                                        ("In Stock", "text-emerald-500 bg-emerald-50")
-                                                    };
-                                                    view! {
-                                                        <tr class="hover:bg-gray-50/50 transition-colors group">
-                                                            <td class="px-6 py-4 font-mono text-indigo-600 font-medium">
-                                                                {vid.to_string()}
-                                                            </td>
-                                                            <td class="px-6 py-4 text-gray-900 font-black text-sm">
-                                                                {s.quantity}
-                                                            </td>
-                                                            <td class="px-6 py-4 text-right">
-                                                                <span class=format!("px-2 py-1 rounded-full text-[10px] font-bold {}", color)>
-                                                                    {status}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                }).collect_view().into_any()
-                                            }
-                                        })}
+                                        {move || match stocks.get() {
+                                            Some(sw) => {
+                                                let list = &*sw;
+                                                if list.is_empty() {
+                                                    view! { <tr><td colspan="3" class="px-6 py-8 text-center text-gray-400 font-medium">"No stock records found"</td></tr> }.into_any()
+                                                } else {
+                                                    list.iter().map(|s| {
+                                                        let vid = s.variant_id;
+                                                        let (status, color) = if s.quantity == 0 {
+                                                            ("Out of Stock", "text-red-500 bg-red-50")
+                                                        } else if s.quantity < 10 {
+                                                            ("Low Stock", "text-amber-500 bg-amber-50")
+                                                        } else {
+                                                            ("In Stock", "text-emerald-500 bg-emerald-50")
+                                                        };
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50/50 transition-colors group">
+                                                                <td class="px-6 py-4 font-mono text-indigo-600 font-medium">
+                                                                    {vid.to_string()}
+                                                                </td>
+                                                                <td class="px-6 py-4 text-gray-900 font-black text-sm">
+                                                                    {s.quantity}
+                                                                </td>
+                                                                <td class="px-6 py-4 text-right">
+                                                                    <span class=format!("px-2 py-1 rounded-full text-[10px] font-bold {}", color)>
+                                                                        {status}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    }).collect_view().into_any()
+                                                }
+                                            },
+                                            None => view! { <tr><td colspan="3"></td></tr> }.into_any()
+                                        }}
                                     </Suspense>
                                 </tbody>
                             </table>

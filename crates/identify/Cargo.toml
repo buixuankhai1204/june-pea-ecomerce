@@ -14,5 +14,6 @@ async-trait = { workspace = true }
 uuid = { workspace = true }
 sqlx = { workspace = true }
 chrono = { workspace = true }
+rust_decimal = { workspace = true }
 argon2 = { version = "0.5.3", features = ["std"] }
 password-hash = { version = "0.5.0", features = ["rand_core"] }

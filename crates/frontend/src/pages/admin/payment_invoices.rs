@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use crate::api::client::analytics::*;
 
 fn icon_download() -> impl IntoView {
     view! {
@@ -11,74 +12,11 @@ fn icon_download() -> impl IntoView {
     }
 }
 
-struct Invoice {
-    num: &'static str,
-    customer: &'static str,
-    date: &'static str,
-    due: &'static str,
-    amount: &'static str,
-    method: &'static str,
-    status: &'static str,
-}
 
 #[component]
 pub fn AdminPaymentInvoicesPage() -> impl IntoView {
-    let invoices = vec![
-        Invoice {
-            num: "INV-2026-041",
-            customer: "Nguyễn Văn An",
-            date: "12/03/2026",
-            due: "19/03/2026",
-            amount: "₫378k",
-            method: "VNPAY",
-            status: "Paid",
-        },
-        Invoice {
-            num: "INV-2026-040",
-            customer: "Trần Thị Bình",
-            date: "12/03/2026",
-            due: "19/03/2026",
-            amount: "₫249k",
-            method: "MoMo",
-            status: "Paid",
-        },
-        Invoice {
-            num: "INV-2026-039",
-            customer: "Lê Hoàng Cường",
-            date: "11/03/2026",
-            due: "18/03/2026",
-            amount: "₫589k",
-            method: "COD",
-            status: "Pending",
-        },
-        Invoice {
-            num: "INV-2026-038",
-            customer: "Phạm Thu Dung",
-            date: "11/03/2026",
-            due: "18/03/2026",
-            amount: "₫657k",
-            method: "ZaloPay",
-            status: "Paid",
-        },
-        Invoice {
-            num: "INV-2026-037",
-            customer: "Hoàng Minh Đức",
-            date: "10/03/2026",
-            due: "17/03/2026",
-            amount: "₫438k",
-            method: "VNPAY",
-            status: "Overdue",
-        },
-        Invoice {
-            num: "INV-2026-036",
-            customer: "Vũ Thị Hoa",
-            date: "10/03/2026",
-            due: "17/03/2026",
-            amount: "₫219k",
-            method: "MoMo",
-            status: "Paid",
-        },
-    ];
+    let invoices_resource = LocalResource::new(|| async move { get_recent_invoices().await });
+    let summary_resource = LocalResource::new(|| async move { get_dashboard_summary().await });
 
     // Donut chart slices for payment methods
     let methods = [
@@ -103,16 +41,27 @@ pub fn AdminPaymentInvoicesPage() -> impl IntoView {
 
             // KPI Cards
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                    ("Total Revenue", "₫128.4M", "#6366F1", "bg-indigo-50 border-indigo-100"),
-                    ("Outstanding",   "₫12.8M",  "#F59E0B", "bg-amber-50 border-amber-100"),
-                    ("Paid This Month","₫42.6M", "#10B981", "bg-emerald-50 border-emerald-100"),
-                ].iter().map(|&(label, val, color, bg)| view! {
-                    <div class=format!("rounded-2xl p-5 border shadow-sm {}", bg)>
-                        <p class="text-xs text-gray-500 font-medium">{label}</p>
-                        <p class="text-2xl font-black mt-1.5" style={format!("color:{}", color)}>{val}</p>
-                    </div>
-                }).collect_view()}
+                <div class="rounded-2xl p-5 border shadow-sm bg-indigo-50 border-indigo-100">
+                    <p class="text-xs text-gray-500 font-medium">"Total Revenue"</p>
+                    {move || match summary_resource.get() {
+                        Some(sw) => {
+                            let res = &*sw;
+                            match res {
+                                Ok(s) => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">{format!("₫{}k", s.total_revenue / 1000)}</p> }.into_any(),
+                                _ => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">"₫..."</p> }.into_any()
+                            }
+                        },
+                        _ => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">"₫..."</p> }.into_any()
+                    }}
+                </div>
+                <div class="rounded-2xl p-5 border shadow-sm bg-amber-50 border-amber-100">
+                    <p class="text-xs text-gray-500 font-medium">"Outstanding"</p>
+                    <p class="text-2xl font-black mt-1.5 text-amber-500">"₫12.8M"</p>
+                </div>
+                <div class="rounded-2xl p-5 border shadow-sm bg-emerald-50 border-emerald-100">
+                    <p class="text-xs text-gray-500 font-medium">"Paid This Month"</p>
+                    <p class="text-2xl font-black mt-1.5 text-emerald-600">"₫42.6M"</p>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -134,36 +83,38 @@ pub fn AdminPaymentInvoicesPage() -> impl IntoView {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-50">
-                                {invoices.into_iter().map(|inv| {
-                                    let badge_bg = match inv.status {
-                                        "Paid"    => "bg-emerald-50 text-emerald-600 border-emerald-100",
-                                        "Pending" => "bg-amber-50 text-amber-600 border-amber-100",
-                                        _         => "bg-rose-50 text-rose-600 border-rose-100",
-                                    };
-                                    let method_color = match inv.method {
-                                        "VNPAY"   => "#6366F1",
-                                        "MoMo"    => "#F59E0B",
-                                        "ZaloPay" => "#10B981",
-                                        _         => "#94A3B8",
-                                    };
-                                    view! {
-                                        <tr class="hover:bg-gray-50 transition-colors duration-100">
-                                            <td class="px-5 py-3.5 font-mono text-indigo-600 font-semibold whitespace-nowrap">{inv.num}</td>
-                                            <td class="px-4 py-3.5 text-gray-800 hidden sm:table-cell whitespace-nowrap">{inv.customer}</td>
-                                            <td class="px-4 py-3.5 text-center hidden md:table-cell">
-                                                <span class="font-semibold text-xs px-2 py-0.5 rounded-md" style={format!("color:{};background:{}20", method_color, method_color)}>
-                                                    {inv.method}
-                                                </span>
-                                            </td>
-                                            <td class="px-4 py-3.5 text-right text-gray-900 font-bold whitespace-nowrap">{inv.amount}</td>
-                                            <td class="px-4 py-3.5 text-center">
-                                                <span class=format!("text-[10px] font-semibold px-2.5 py-1 rounded-full border {}", badge_bg)>
-                                                    {inv.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    }
-                                }).collect_view()}
+                                <Suspense fallback=move || view! { <tr><td colspan="5" class="text-center py-4">"Loading..."</td></tr> }>
+                                    {move || match invoices_resource.get() {
+                                        Some(sw) => {
+                                            let res = &*sw;
+                                            match res {
+                                                Ok(items) => items.iter().map(|inv| {
+                                                    let id_short = format!("#{}", &inv.order_id.to_string()[..8]);
+                                                    let email = inv.customer_email.clone();
+                                                    let amount = format!("₫{}k", inv.amount / rust_decimal::Decimal::from(1000u32));
+                                                    let status = inv.status.to_string();
+                                                    view! {
+                                                        <tr class="hover:bg-gray-50 transition-colors duration-100">
+                                                            <td class="px-5 py-3.5 font-mono text-indigo-600 font-semibold whitespace-nowrap">{id_short}</td>
+                                                            <td class="px-4 py-3.5 text-gray-800 hidden sm:table-cell whitespace-nowrap">{email}</td>
+                                                            <td class="px-4 py-3.5 text-center hidden md:table-cell">
+                                                                <span class="font-semibold text-xs px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">"COD"</span>
+                                                            </td>
+                                                            <td class="px-4 py-3.5 text-right text-gray-900 font-bold whitespace-nowrap">{amount}</td>
+                                                            <td class="px-4 py-3.5 text-center">
+                                                                <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-600 border-emerald-100">
+                                                                    {status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                }).collect_view().into_any(),
+                                                _ => view! { <tr><td colspan="5" class="text-center py-4">"No data found"</td></tr> }.into_any()
+                                            }
+                                        },
+                                        None => view! { <tr><td colspan="5" class="text-center py-4">"No data"</td></tr> }.into_any()
+                                    }}
+                                </Suspense>
                             </tbody>
                         </table>
                     </div>

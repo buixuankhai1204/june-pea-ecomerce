@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub trait CatalogRepository: Send + Sync {
     async fn get_by_slug(&self, slug: &str) -> Result<Option<ProductWithVariants>, AppError>;
     async fn get_by_id(&self, id: Uuid) -> Result<Option<ProductWithVariants>, AppError>;
-    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<Product>, AppError>;
+    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<ProductWithVariants>, AppError>;
     async fn count_all(&self) -> Result<i64, AppError>;
     async fn create_category(
         &self,
@@ -35,6 +35,10 @@ pub trait CatalogRepository: Send + Sync {
     ) -> Result<(), AppError>;
     async fn delete_product(&self, id: Uuid) -> Result<(), AppError>;
     async fn delete_category(&self, id: Uuid) -> Result<(), AppError>;
+
+    // Search and Tree
+    async fn search_products(&self, query: &str, limit: i64, offset: i64) -> Result<Vec<ProductWithVariants>, AppError>;
+    async fn get_categories_by_parent(&self, parent_id: Option<Uuid>) -> Result<Vec<crate::domain::model::Category>, AppError>;
 
     // Variant management
     async fn create_variant(

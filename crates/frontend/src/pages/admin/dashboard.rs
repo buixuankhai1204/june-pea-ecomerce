@@ -1,4 +1,6 @@
 use leptos::prelude::*;
+use crate::api::client;
+use crate::api::client::analytics::*;
 
 // ── Shared icon helpers ────────────────────────────────────────────────────
 
@@ -119,95 +121,40 @@ struct TopSeller {
 pub fn AdminDashboardPage() -> impl IntoView {
     let revenue_toggle = RwSignal::new("Daily");
 
-    let products = vec![
-        Product {
-            name: "Áo Thun Modal AirDry",
-            category: "Áo Thun",
-            stock: 244,
-            sold: 124,
-            price: "₫189k",
-            color: "#6366F1",
-        },
-        Product {
-            name: "Áo Sơ Mi Non-Iron",
-            category: "Áo Sơ Mi",
-            stock: 180,
-            sold: 96,
-            price: "₫249k",
-            color: "#F59E0B",
-        },
-        Product {
-            name: "Áo Polo Raglan Flex",
-            category: "Áo Polo",
-            stock: 312,
-            sold: 88,
-            price: "₫219k",
-            color: "#10B981",
-        },
-        Product {
-            name: "Áo Khoác Worker Xám",
-            category: "Áo Khoác",
-            stock: 98,
-            sold: 54,
-            price: "₫589k",
-            color: "#F43F5E",
-        },
-    ];
-
-    let attendance = vec![
-        StaffAttendance {
-            name: "Nguyễn Văn An",
-            role: "Cashier",
-            time: "08:32 AM",
-            status: "on_time",
-        },
-        StaffAttendance {
-            name: "Trần Thị Bình",
-            role: "Inventory Manager",
-            time: "08:47 AM",
-            status: "on_time",
-        },
-        StaffAttendance {
-            name: "Lê Hoàng Cường",
-            role: "Marketing Strategist",
-            time: "09:12 AM",
-            status: "late",
-        },
-        StaffAttendance {
-            name: "Phạm Thu Dung",
-            role: "Inventory Manager",
-            time: "08:55 AM",
-            status: "on_time",
-        },
-    ];
-
-    let top_sellers = vec![
-        TopSeller {
-            name: "Food",
-            pct: 72,
-            color: "#6366F1",
-        },
-        TopSeller {
-            name: "Clothing",
-            pct: 58,
-            color: "#F59E0B",
-        },
-        TopSeller {
-            name: "Toys",
-            pct: 40,
-            color: "#10B981",
-        },
-        TopSeller {
-            name: "Medicine",
-            pct: 28,
-            color: "#F43F5E",
-        },
-    ];
-
-    let revenue_points = vec![8.2, 12.3, 10.5, 16.8, 14.2, 20.18, 18.5];
+    let summary_resource = LocalResource::new(|| async move { get_dashboard_summary().await });
+    let revenue_resource = LocalResource::new(|| async move { get_revenue_analytics().await });
+    let low_stock_resource = LocalResource::new(|| async move { get_low_stock_items().await });
+    let categories_resource = LocalResource::new(|| async move { get_category_breakdown().await });
+    let invoices_resource = LocalResource::new(|| async move { get_recent_invoices().await });
 
     view! {
         <div class="p-6 space-y-6">
+
+            // Header
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-black text-gray-900">"Dashboard"</h1>
+                    <p class="text-xs text-gray-400 mt-0.5">"Welcome back, here's what's happening today"</p>
+                </div>
+                <button
+                    on:click=move |_| {
+                        let _ = Action::new_local(|_: &()| async move {
+                             client::analytics::export_order_report().await
+                        }).dispatch(());
+                        if let Some(w) = web_sys::window() {
+                            let _ = w.alert_with_message("Exporting order report to CSV...");
+                        }
+                    }
+                    class="flex items-center gap-1.5 bg-gray-900 hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    "Export Report"
+                </button>
+            </div>
 
             // ── KPI cards ──────────────────────────────────────────────────
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -215,7 +162,13 @@ pub fn AdminDashboardPage() -> impl IntoView {
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
                     <div>
                         <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">"Stock Accuracy"</p>
-                        <p class="text-3xl font-black text-gray-900 mt-1">"98%"</p>
+                        {move || match summary_resource.get() {
+                            Some(res) => match &*res {
+                                Ok(s) => view! { <p class="text-3xl font-black text-gray-900 mt-1">{format!("{:.0}%", s.stock_accuracy)}</p> }.into_any(),
+                                _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                            },
+                            _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                        }}
                         <div class="flex items-center gap-1 mt-1">
                             <span class="text-emerald-500 text-xs font-semibold flex items-center gap-0.5">
                                 {icon_trending_up()} "+1.2%"
@@ -230,7 +183,13 @@ pub fn AdminDashboardPage() -> impl IntoView {
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
                     <div>
                         <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">"Today Orders"</p>
-                        <p class="text-3xl font-black text-gray-900 mt-1">"1,215"</p>
+                        {move || match summary_resource.get() {
+                            Some(res) => match &*res {
+                                Ok(s) => view! { <p class="text-3xl font-black text-gray-900 mt-1">{s.today_orders}</p> }.into_any(),
+                                _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                            },
+                            _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                        }}
                         <div class="flex items-center gap-1 mt-1">
                             <span class="text-emerald-500 text-xs font-semibold flex items-center gap-0.5">
                                 {icon_trending_up()} "+3.8%"
@@ -245,7 +204,13 @@ pub fn AdminDashboardPage() -> impl IntoView {
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
                     <div>
                         <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">"New Products"</p>
-                        <p class="text-3xl font-black text-gray-900 mt-1">"45"</p>
+                        {move || match summary_resource.get() {
+                            Some(res) => match &*res {
+                                Ok(s) => view! { <p class="text-3xl font-black text-gray-900 mt-1">{s.new_products_this_week}</p> }.into_any(),
+                                _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                            },
+                            _ => view! { <p class="text-3xl font-black text-gray-900 mt-1">"..."</p> }.into_any()
+                        }}
                         <div class="flex items-center gap-1 mt-1">
                             <span class="text-emerald-500 text-xs font-semibold flex items-center gap-0.5">
                                 {icon_trending_up()} "+8"
@@ -272,34 +237,37 @@ pub fn AdminDashboardPage() -> impl IntoView {
                         </a>
                     </div>
                     <div class="space-y-3">
-                        {products.into_iter().map(|p| {
-                            let fill_pct = (p.sold as f64 / (p.stock + p.sold) as f64 * 100.0) as u32;
-                            view! {
-                                <div class="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
-                                    // Color swatch
-                                    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-xs font-bold"
-                                        style={format!("background:{}", p.color)}>
-                                        {p.category.chars().next().unwrap_or('?').to_string()}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs font-semibold text-gray-900 truncate">{p.name}</p>
-                                        <div class="flex items-center gap-3 mt-1">
-                                            <span class="text-[11px] text-gray-400">"Stock: " {p.stock}</span>
-                                            <span class="text-[11px] text-gray-400">"Sold: " {p.sold}</span>
-                                        </div>
-                                        // Mini progress bar
-                                        <div class="mt-1.5 h-1 bg-gray-200 rounded-full overflow-hidden w-full">
-                                            <div class="h-full rounded-full transition-all duration-500"
-                                                style={format!("width:{}%; background:{}", fill_pct, p.color)}>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="text-right flex-shrink-0">
-                                        <p class="text-sm font-black text-gray-900">{p.price}</p>
-                                    </div>
-                                </div>
-                            }
-                        }).collect_view()}
+                        <Suspense fallback=move || view! { <p>"Loading products..."</p> }>
+                            {move || match low_stock_resource.get() {
+                                Some(sw) => {
+                                    let res = &*sw;
+                                    match res {
+                                        Ok(items) => items.iter().map(|p| {
+                                            let p_name = p.product_name.clone();
+                                            let v_name = p.variant_name.clone();
+                                            let initial = p_name.chars().next().unwrap_or('?').to_string();
+                                            let stock = p.current_stock;
+                                            view! {
+                                                <div class="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
+                                                    <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-xs font-bold bg-rose-500">
+                                                        {initial}
+                                                    </div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-xs font-semibold text-gray-900 truncate">{p_name}</p>
+                                                        <div class="flex items-center gap-3 mt-1">
+                                                            <span class="text-[11px] text-gray-400">{v_name}</span>
+                                                            <span class="text-[11px] text-rose-500 font-bold">"Stock: " {stock}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }).collect_view().into_any(),
+                                        _ => view! { <p>"No low stock items found"</p> }.into_any()
+                                    }
+                                },
+                                None => view! { <p>"Loading..."</p> }.into_any()
+                            }}
+                        </Suspense>
                     </div>
                 </div>
 
@@ -315,19 +283,33 @@ pub fn AdminDashboardPage() -> impl IntoView {
                             </div>
                         </div>
                         <div class="space-y-3">
-                            {top_sellers.into_iter().map(|s| view! {
-                                <div class="space-y-1">
-                                    <div class="flex items-center justify-between text-xs">
-                                        <span class="text-gray-700 font-medium">{s.name}</span>
-                                        <span class="text-gray-900 font-bold">{s.pct}"%"</span>
-                                    </div>
-                                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full"
-                                            style={format!("width:{}%; background:{}", s.pct, s.color)}>
-                                        </div>
-                                    </div>
-                                </div>
-                            }).collect_view()}
+                            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+                                {move || match categories_resource.get() {
+                                    Some(sw) => {
+                                        let res = &*sw;
+                                        match res {
+                                            Ok(items) => items.iter().map(|s| {
+                                                let c_name = s.category_name.clone();
+                                                let pct = s.sales_percentage;
+                                                let bg = format!("width:{}%; background:{}", pct, s.color);
+                                                view! {
+                                                    <div class="space-y-1">
+                                                        <div class="flex items-center justify-between text-xs">
+                                                            <span class="text-gray-700 font-medium">{c_name}</span>
+                                                            <span class="text-gray-900 font-bold">{pct}"%"</span>
+                                                        </div>
+                                                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div class="h-full rounded-full" style=bg></div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }).collect_view().into_any(),
+                                            _ => view! { <p>"No category data"</p> }.into_any()
+                                        }
+                                    },
+                                    None => view! { <p>"Loading..."</p> }.into_any()
+                                }}
+                            </Suspense>
                         </div>
                     </div>
 
@@ -349,12 +331,29 @@ pub fn AdminDashboardPage() -> impl IntoView {
                             </div>
                         </div>
                         <div class="flex items-baseline gap-2 mb-1">
-                            <span class="text-2xl font-black text-gray-900">"$20,180"</span>
+                            {move || match summary_resource.get() {
+                                Some(res) => match &*res {
+                                    Ok(s) => view! { <span class="text-2xl font-black text-gray-900">{format!("₫{}k", s.total_revenue / 1000)}</span> }.into_any(),
+                                    _ => view! { <span class="text-2xl font-black text-gray-900">"₫..."</span> }.into_any()
+                                },
+                                _ => view! { <span class="text-2xl font-black text-gray-900">"₫..."</span> }.into_any()
+                            }}
                             <span class="text-xs text-emerald-500 font-semibold">"+5.4% vs yesterday"</span>
                         </div>
                         // Line chart
                         <div class="mt-3">
-                            {sparkline(&revenue_points, "#6366F1")}
+                            <Suspense fallback=move || view! { <p>"Loading chart..."</p> }>
+                                {move || match revenue_resource.get() {
+                                    Some(res) => match &*res {
+                                        Ok(points) => {
+                                            let data: Vec<f64> = points.iter().map(|p| p.value as f64).collect();
+                                            view! { {sparkline(&data, "#6366F1")} }.into_any()
+                                        },
+                                        _ => view! { <p>"Chart error"</p> }.into_any()
+                                    },
+                                    None => view! { <p>"Loading..."</p> }.into_any()
+                                }}
+                            </Suspense>
                         </div>
                         // Legend
                         <div class="flex items-center gap-3 mt-2">
@@ -381,28 +380,39 @@ pub fn AdminDashboardPage() -> impl IntoView {
                         </a>
                     </div>
                     <div class="space-y-3">
-                        {attendance.into_iter().map(|a| {
-                            let (badge_bg, badge_text) = if a.status == "on_time" {
-                                ("bg-emerald-50 text-emerald-600 border-emerald-100", "On Time")
-                            } else {
-                                ("bg-amber-50 text-amber-600 border-amber-100", "Late")
-                            };
-                            view! {
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                        {a.name.chars().next().unwrap_or('?').to_string()}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs font-semibold text-gray-900 truncate">{a.name}</p>
-                                        <p class="text-[11px] text-gray-400 truncate">{a.role}</p>
-                                    </div>
-                                    <span class="text-[11px] text-gray-500 flex-shrink-0">{a.time}</span>
-                                    <span class=format!("text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 {}", badge_bg)>
-                                        {badge_text}
-                                    </span>
-                                </div>
-                            }
-                        }).collect_view()}
+                        <Suspense fallback=move || view! { <p>"Loading invoices..."</p> }>
+                            {move || match invoices_resource.get() {
+                                Some(sw) => {
+                                    let res = &*sw;
+                                    match res {
+                                        Ok(items) => items.iter().map(|inv| {
+                                            let email = inv.customer_email.clone();
+                                            let initial = email.chars().next().unwrap_or('?').to_string();
+                                            let order_id_short = format!("#{}", &inv.order_id.to_string()[..8]);
+                                            let total_k = format!("₫{}k", inv.total/1000);
+                                            let status = inv.status.clone();
+                                            view! {
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                                                        {initial}
+                                                    </div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-xs font-semibold text-gray-900 truncate">{email}</p>
+                                                        <p class="text-[11px] text-gray-400 truncate">{order_id_short}</p>
+                                                    </div>
+                                                    <span class="text-[11px] text-gray-900 font-bold flex-shrink-0">{total_k}</span>
+                                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-600 border-emerald-100 flex-shrink-0">
+                                                        {status.to_string()}
+                                                    </span>
+                                                </div>
+                                            }
+                                        }).collect_view().into_any(),
+                                        _ => view! { <p>"No recent invoices"</p> }.into_any()
+                                    }
+                                },
+                                None => view! { <p>"Loading..."</p> }.into_any()
+                            }}
+                        </Suspense>
                     </div>
                 </div>
 

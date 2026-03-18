@@ -25,6 +25,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::Level;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::FmtSubscriber;
+use analytics::routes::AnalyticsUsecase;
 
 mod middleware;
 
@@ -35,6 +36,7 @@ pub struct AppState {
     pub inventory_usecase: Arc<InventoryUsecase>,
     pub marketing_usecase: Arc<marketing::routes::MarketingUsecase>,
     pub ordering_usecase: Arc<ordering::routes::OrderingUsecase>,
+    pub analytics_usecase: Arc<AnalyticsUsecase>,
     pub user_repo: Arc<PostgresUserRepository>,
 }
 
@@ -56,6 +58,36 @@ impl IdentityState for AppState {
     }
     fn list_users_usecase(&self) -> Arc<identify::usecase::list_users::ListUsersUsecase> {
         Arc::new(identify::usecase::list_users::ListUsersUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn list_memberships_usecase(&self) -> Arc<identify::usecase::list_memberships::ListMembershipsUsecase> {
+        Arc::new(identify::usecase::list_memberships::ListMembershipsUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn get_membership_summary_usecase(&self) -> Arc<identify::usecase::get_membership_summary::GetMembershipSummaryUsecase> {
+        Arc::new(identify::usecase::get_membership_summary::GetMembershipSummaryUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn change_password_usecase(&self) -> Arc<identify::usecase::change_password::ChangePasswordUsecase> {
+        Arc::new(identify::usecase::change_password::ChangePasswordUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn delete_user_usecase(&self) -> Arc<identify::usecase::delete_user::DeleteUserUsecase> {
+        Arc::new(identify::usecase::delete_user::DeleteUserUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn list_staff_usecase(&self) -> Arc<identify::usecase::list_staff::ListStaffUsecase> {
+        Arc::new(identify::usecase::list_staff::ListStaffUsecase::new(
+            self.user_repo.clone(),
+        ))
+    }
+    fn create_staff_usecase(&self) -> Arc<identify::usecase::create_staff::CreateStaffUsecase> {
+        Arc::new(identify::usecase::create_staff::CreateStaffUsecase::new(
             self.user_repo.clone(),
         ))
     }
@@ -118,12 +150,16 @@ async fn main() -> anyhow::Result<()> {
         marketing_repo.clone(),
         postgrese_unit_of_work.clone(),
     ));
+    let apply_category_discount = Arc::new(marketing::usecase::apply_category_discount::ApplyCategoryDiscountUsecase::new(
+        marketing_repo.clone(),
+    ));
     let marketing_usecases = Arc::new(marketing::routes::MarketingUsecase::new(
         create_coupon,
         validate_coupon,
         list_coupons,
         deactivate_coupon,
         delete_coupon,
+        apply_category_discount,
     ));
 
     // Ordering
@@ -158,6 +194,14 @@ async fn main() -> anyhow::Result<()> {
             postgrese_unit_of_work.clone(),
         ),
     );
+    let update_order_note = Arc::new(ordering::usecase::update_order_note::UpdateOrderNoteUsecase::new(
+        ordering_repo.clone(),
+        postgrese_unit_of_work.clone(),
+    ));
+    let list_recent_orders = Arc::new(ordering::usecase::list_customer_recent_orders::ListCustomerRecentOrdersUsecase::new(
+        ordering_repo.clone(),
+        postgrese_unit_of_work.clone(),
+    ));
     let ordering_usecases = Arc::new(ordering::routes::OrderingUsecase::new(
         place_order,
         cancel_order,
@@ -165,7 +209,12 @@ async fn main() -> anyhow::Result<()> {
         list_orders,
         update_order_status.clone(),
         list_all_orders,
+        update_order_note,
+        list_recent_orders,
     ));
+
+    // Analytics
+    let analytics_usecases = Arc::new(AnalyticsUsecase::new(Arc::new(pool.clone())));
 
     // Payment
     let payment_config = PaymentConfig::from_env()?;
@@ -189,10 +238,14 @@ async fn main() -> anyhow::Result<()> {
         vn_pay_client.clone(),
         update_order_status.clone(),
     ));
+    let refund_payment = Arc::new(payment::usecase::refund_payment::RefundPaymentUsecase::new(
+        payment_repo.clone(),
+    ));
     let payment_usecases = Arc::new(PaymentRouter::new(
         create_vnpay_qr,
         get_payment_status,
         handle_vnpay_ipn,
+        refund_payment,
     ));
 
     let marketing_router =
@@ -206,6 +259,8 @@ async fn main() -> anyhow::Result<()> {
     let payment_router = payment::routes::init().with_state(payment_usecases.as_ref().clone());
     let payment_ipn_router =
         payment::routes::init_ipn().with_state(payment_usecases.as_ref().clone());
+    let analytics_router = analytics::routes::init().with_state(analytics_usecases.as_ref().clone());
+    let identity_router = identify::routes::init::<AppState>();
     let cors_layer = tower_http::cors::CorsLayer::new()
         .allow_origin(Any)
         .allow_methods([
@@ -228,6 +283,7 @@ async fn main() -> anyhow::Result<()> {
         inventory_usecase: inventory_usecases,
         marketing_usecase: marketing_usecases,
         ordering_usecase: ordering_usecases,
+        analytics_usecase: analytics_usecases,
         user_repo: user_repo,
     };
 
@@ -250,6 +306,8 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api/v1/marketing", marketing_router)
         .nest("/api/v1/ordering", ordering_router)
         .nest("/api/v1/payment", payment_router)
+        .nest("/api/v1/analytics", analytics_router)
+        .nest("/api/v1/identity", identity_router)
         .layer(axum::middleware::from_fn(middleware::auth::auth_middleware));
 
     let app = Router::new()

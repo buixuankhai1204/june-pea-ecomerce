@@ -10,3 +10,5 @@ pub mod product_by_id;
 pub mod product_details;
 pub mod update_product;
 pub mod update_variant;
+pub mod search_products;
+pub mod get_category_tree;

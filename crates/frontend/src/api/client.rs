@@ -163,6 +163,25 @@ pub mod identity {
     pub async fn list_users() -> Result<Vec<User>, ApiError> {
         get("/api/v1/auth/users").await
     }
+
+    pub async fn list_staff() -> Result<Vec<StaffMember>, ApiError> {
+        get("/api/v1/identity/staff").await
+    }
+
+    pub async fn create_staff(email: &str, password: &str) -> Result<serde_json::Value, ApiError> {
+        post("/api/v1/identity/staff", &serde_json::json!({
+            "email": email,
+            "password": password
+        })).await
+    }
+
+    pub async fn change_password(req: ChangePasswordRequest) -> Result<bool, ApiError> {
+        post("/api/v1/auth/change-password", &req).await
+    }
+
+    pub async fn delete_user(id: Uuid) -> Result<bool, ApiError> {
+        delete(&format!("/api/v1/auth/users/{}", id)).await
+    }
 }
 
 pub mod catalog {
@@ -219,6 +238,14 @@ pub mod catalog {
     pub async fn delete_variant(id: Uuid) -> Result<bool, ApiError> {
         delete::<bool>(&format!("/api/v1/catalog/variants/{}", id)).await
     }
+
+    pub async fn search_products(query: &str) -> Result<Vec<ProductWithVariants>, ApiError> {
+        get(&format!("/api/v1/catalog/search?q={}", query)).await
+    }
+
+    pub async fn get_category_tree() -> Result<Vec<CategoryNode>, ApiError> {
+        get("/api/v1/catalog/categories/tree").await
+    }
 }
 
 pub mod inventory {
@@ -234,6 +261,10 @@ pub mod inventory {
 
     pub async fn list_all_stocks() -> Result<Vec<StockResponse>, ApiError> {
         get("/api/v1/inventory/list-all").await
+    }
+
+    pub async fn check_low_stock_alerts(threshold: i32) -> Result<Vec<StockResponse>, ApiError> {
+        get(&format!("/api/v1/inventory/stock/low-alerts?threshold={}", threshold)).await
     }
 }
 
@@ -259,6 +290,18 @@ pub mod ordering {
     pub async fn list_all_orders() -> Result<Vec<Order>, ApiError> {
         get("/api/v1/ordering/orders").await
     }
+
+    pub async fn update_order_note(id: Uuid, note: &str) -> Result<bool, ApiError> {
+        patch::<bool, _>(
+            &format!("/api/v1/ordering/orders/{}/note", id),
+            &UpdateOrderNoteRequest { note: note.to_string() },
+        )
+        .await
+    }
+
+    pub async fn list_recent_orders(customer_id: Uuid) -> Result<Vec<Order>, ApiError> {
+        get(&format!("/api/v1/ordering/orders/customer/{}/recent", customer_id)).await
+    }
 }
 
 pub mod marketing {
@@ -272,14 +315,22 @@ pub mod marketing {
         post("/api/v1/marketing/coupons", &req).await
     }
 
-    pub async fn delete_coupon(code: &str) -> Result<bool, ApiError> {
-        delete::<bool>(&format!("/api/v1/marketing/coupons/{}", code)).await
+    pub async fn deactivate_coupon(code: &str) -> Result<serde_json::Value, ApiError> {
+        patch(&format!("/api/v1/marketing/coupons/{}/deactivate", code), &serde_json::json!({})).await
+    }
+
+    pub async fn delete_coupon(code: &str) -> Result<serde_json::Value, ApiError> {
+        delete(&format!("/api/v1/marketing/coupons/{}", code)).await
     }
 
     pub async fn validate_coupon(
         req: ValidateCouponRequest,
     ) -> Result<ValidateCouponResponse, ApiError> {
         post("/api/v1/marketing/coupons/validate", &req).await
+    }
+
+    pub async fn apply_category_discount(req: ApplyCategoryDiscountRequest) -> Result<bool, ApiError> {
+        post("/api/v1/marketing/discounts/category", &req).await
     }
 }
 
@@ -292,6 +343,66 @@ pub mod payment {
 
     pub async fn get_payment_status(order_id: Uuid) -> Result<PaymentIntentView, ApiError> {
         get(&format!("/api/v1/payment/orders/{}", order_id)).await
+    }
+
+    pub async fn refund_payment(order_id: Uuid) -> Result<bool, ApiError> {
+        post::<bool, _>(&format!("/api/v1/payment/orders/{}/refund", order_id), &serde_json::json!({})).await
+    }
+}
+
+pub mod suppliers {
+    use super::*;
+
+    pub async fn list_suppliers() -> Result<Vec<Supplier>, ApiError> {
+        get("/api/v1/inventory/suppliers").await
+    }
+
+    pub async fn create_supplier(req: CreateSupplierRequest) -> Result<Supplier, ApiError> {
+        post("/api/v1/inventory/suppliers", &req).await
+    }
+
+    pub async fn delete_supplier(id: Uuid) -> Result<serde_json::Value, ApiError> {
+        delete(&format!("/api/v1/inventory/suppliers/{}", id)).await
+    }
+}
+
+pub mod memberships {
+    use super::*;
+
+    pub async fn list_memberships() -> Result<Vec<Membership>, ApiError> {
+        get("/api/v1/auth/memberships").await
+    }
+
+    pub async fn get_membership_summary() -> Result<MembershipSummary, ApiError> {
+        get("/api/v1/auth/memberships/summary").await
+    }
+}
+
+pub mod analytics {
+    use super::*;
+
+    pub async fn get_dashboard_summary() -> Result<DashboardSummary, ApiError> {
+        get("/api/v1/analytics/dashboard-summary").await
+    }
+
+    pub async fn get_revenue_analytics() -> Result<Vec<RevenuePoint>, ApiError> {
+        get("/api/v1/analytics/revenue-analytics").await
+    }
+
+    pub async fn get_low_stock_items() -> Result<Vec<LowStockItem>, ApiError> {
+        get("/api/v1/analytics/low-stock-items").await
+    }
+
+    pub async fn get_category_breakdown() -> Result<Vec<CategoryBreakdown>, ApiError> {
+        get("/api/v1/analytics/category-breakdown").await
+    }
+
+    pub async fn get_recent_invoices() -> Result<Vec<Invoice>, ApiError> {
+        get("/api/v1/analytics/recent-invoices").await
+    }
+
+    pub async fn export_order_report() -> Result<String, ApiError> {
+        get("/api/v1/analytics/export-orders").await
     }
 }
 

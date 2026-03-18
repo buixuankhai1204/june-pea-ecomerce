@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use leptos_router::hooks::use_navigate;
 
 use crate::state::auth::AuthState;
 use crate::state::cart::CartState;
@@ -39,7 +40,36 @@ fn Navbar() -> impl IntoView {
             <div class="max-w-7xl mx-auto px-4">
                 <div class="flex items-center justify-between h-16">
                     // Logo
-                    <a href="/" class="text-xl font-bold text-indigo-600">"Yame"</a>
+                    <div class="flex items-center gap-8">
+                        <a href="/" class="text-xl font-bold text-indigo-600">"Yame"</a>
+
+                        // Search Bar
+                        <form
+                            class="hidden md:flex items-center bg-gray-100 rounded-full px-4 py-1.5 w-64 lg:w-96"
+                            on:submit=move |e| {
+                                e.prevent_default();
+                                let target = event_target::<web_sys::HtmlFormElement>(&e);
+                                let form_data = web_sys::FormData::new_with_form(&target).unwrap();
+                                if let Some(q) = form_data.get("q").as_string() {
+                                    if !q.is_empty() {
+                                        let _ = use_navigate()(&format!("/products?q={}", q), Default::default());
+                                    }
+                                }
+                            }
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input
+                                type="text"
+                                name="q"
+                                placeholder="Search products..."
+                                class="bg-transparent border-none outline-none text-sm ml-2 w-full"
+                            />
+                        </form>
+                    </div>
 
                     // Nav links
                     <div class="flex items-center gap-6">

@@ -115,7 +115,6 @@ pub fn CheckoutPage() -> impl IntoView {
         let req = PlaceOrderRequest {
             customer_id: user_id,
             items: order_items,
-            coupon_code: applied_coupon.get_untracked().map(|c| c.code),
         };
 
         loading.set(true);
@@ -376,6 +375,7 @@ fn payment_status_text(status: &PaymentStatus) -> &'static str {
         PaymentStatus::Paid => "Đã thanh toán",
         PaymentStatus::Failed => "Thanh toán thất bại",
         PaymentStatus::Expired => "QR đã hết hạn",
+        PaymentStatus::Refunded => "Đã hoàn tiền",
     }
 }
 
@@ -412,6 +412,11 @@ fn spawn_payment_polling(
                         }
                         PaymentStatus::Expired => {
                             payment_message.set("Mã QR đã hết hạn. Tạo lại để tiếp tục.".into());
+                            payment_polling.set(false);
+                            return;
+                        }
+                        PaymentStatus::Refunded => {
+                            payment_message.set("Đơn hàng đã được hoàn tiền.".into());
                             payment_polling.set(false);
                             return;
                         }

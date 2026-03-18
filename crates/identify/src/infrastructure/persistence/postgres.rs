@@ -1,4 +1,4 @@
-use crate::domain::model::User;
+use crate::domain::model::{User, UserMembership};
 use crate::domain::user_repository::UserRepository;
 use shared::error::AppError;
 use sqlx::PgPool;
@@ -70,5 +70,43 @@ impl UserRepository for PostgresUserRepository {
         .fetch_all(&*self.pool)
         .await?;
         Ok(users)
+    }
+
+    async fn list_staff(&self) -> Result<Vec<User>, AppError> {
+        let staff = sqlx::query_as::<_, User>(
+            "SELECT id, email, password_hash, role FROM identify.users WHERE role IN ('admin', 'staff') ORDER BY email",
+        )
+        .fetch_all(&*self.pool)
+        .await?;
+        Ok(staff)
+    }
+
+    async fn list_memberships(&self) -> Result<Vec<UserMembership>, AppError> {
+        let rows = sqlx::query(
+            "SELECT u.id as user_id, u.email, m.tier, m.points, m.total_spent, m.joined_at 
+             FROM identify.users u 
+             JOIN identify.memberships m ON u.id = m.user_id 
+             ORDER BY m.joined_at DESC"
+        )
+        .fetch_all(&*self.pool)
+        .await?;
+
+        use sqlx::Row;
+        Ok(rows.into_iter().map(|r| UserMembership {
+            user_id: r.try_get("user_id").unwrap(),
+            email: r.try_get("email").unwrap(),
+            tier: r.try_get("tier").unwrap(),
+            points: r.try_get("points").unwrap(),
+            total_spent: r.try_get("total_spent").unwrap(),
+            joined_at: r.try_get("joined_at").unwrap(),
+        }).collect())
+    }
+
+    async fn delete_user(&self, id: uuid::Uuid) -> Result<(), AppError> {
+        sqlx::query("DELETE FROM identify.users WHERE id = $1")
+            .bind(id)
+            .execute(&*self.pool)
+            .await?;
+        Ok(())
     }
 }

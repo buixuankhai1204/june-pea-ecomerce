@@ -8,6 +8,7 @@ pub enum PaymentStatus {
     Paid,
     Failed,
     Expired,
+    Refunded,
 }
 
 impl PaymentStatus {
@@ -17,6 +18,7 @@ impl PaymentStatus {
             Self::Paid => "paid",
             Self::Failed => "failed",
             Self::Expired => "expired",
+            Self::Refunded => "refunded",
         }
     }
 
@@ -25,6 +27,7 @@ impl PaymentStatus {
             "paid" => Self::Paid,
             "failed" => Self::Failed,
             "expired" => Self::Expired,
+            "refunded" => Self::Refunded,
             _ => Self::Pending,
         }
     }
@@ -124,6 +127,11 @@ impl PaymentIntent {
     pub fn mark_failed(&mut self, response_code: Option<String>) {
         self.status = PaymentStatus::Failed;
         self.response_code = response_code;
+        self.updated_at = Utc::now();
+    }
+
+    pub fn mark_refunded(&mut self) {
+        self.status = PaymentStatus::Refunded;
         self.updated_at = Utc::now();
     }
 }

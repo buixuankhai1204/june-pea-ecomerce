@@ -3,6 +3,7 @@ use crate::usecase::{
     dto::PaymentIntentView,
     get_payment_status::GetPaymentStatusUsecase,
     handle_vnpay_ipn::{HandleVnPayIpnUsecase, IpnResponseBody},
+    refund_payment::RefundPaymentUsecase,
 };
 use axum::extract::{Path, RawQuery, State};
 use axum::http::StatusCode;
@@ -21,6 +22,7 @@ pub struct PaymentUsecase {
     create_vnpay_qr: Arc<CreateVnPayQrUsecase>,
     get_payment_status: Arc<GetPaymentStatusUsecase>,
     handle_vnpay_ipn: Arc<HandleVnPayIpnUsecase>,
+    refund_payment: Arc<RefundPaymentUsecase>,
 }
 
 impl PaymentUsecase {
@@ -28,11 +30,13 @@ impl PaymentUsecase {
         create_vnpay_qr: Arc<CreateVnPayQrUsecase>,
         get_payment_status: Arc<GetPaymentStatusUsecase>,
         handle_vnpay_ipn: Arc<HandleVnPayIpnUsecase>,
+        refund_payment: Arc<RefundPaymentUsecase>,
     ) -> Self {
         Self {
             create_vnpay_qr,
             get_payment_status,
             handle_vnpay_ipn,
+            refund_payment,
         }
     }
 
@@ -47,12 +51,17 @@ impl PaymentUsecase {
     pub fn handle_vnpay_ipn(&self) -> Arc<HandleVnPayIpnUsecase> {
         self.handle_vnpay_ipn.clone()
     }
+
+    pub fn refund_payment(&self) -> Arc<RefundPaymentUsecase> {
+        self.refund_payment.clone()
+    }
 }
 
 pub fn init() -> Router<PaymentUsecase> {
     Router::new()
         .route("/vnpay/qr", post(create_vnpay_qr_handler))
         .route("/orders/{order_id}", get(get_payment_status_handler))
+        .route("/orders/{order_id}/refund", post(refund_payment_handler))
 }
 
 pub fn init_ipn() -> Router<PaymentUsecase> {
@@ -114,4 +123,13 @@ async fn vnpay_ipn_handler(
             )
         }
     }
+}
+
+async fn refund_payment_handler(
+    State(state): State<PaymentUsecase>,
+    Path(order_id): Path<Uuid>,
+) -> Result<Json<bool>, AppError> {
+    let usecase = state.refund_payment();
+    usecase.execute(order_id).await?;
+    Ok(Json(true))
 }

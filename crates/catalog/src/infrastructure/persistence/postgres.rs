@@ -19,7 +19,7 @@ impl PostgresCatalogRepository {
 impl CatalogRepository for PostgresCatalogRepository {
     async fn get_by_slug(&self, slug: &str) -> Result<Option<ProductWithVariants>, AppError> {
         let product = sqlx::query_as::<_, Product>(
-            "SELECT id, name, slug, description, category_id FROM catalog.products WHERE slug = $1",
+            "SELECT id, name, slug, description, category_id, created_at, created_at as updated_at FROM catalog.products WHERE slug = $1",
         )
         .bind(slug)
         .fetch_optional(&*self.pool)
@@ -31,7 +31,7 @@ impl CatalogRepository for PostgresCatalogRepository {
         };
 
         let variants = sqlx::query_as::<_, ProductVariant>(
-            "SELECT id, product_id, sku, name, attributes, base_price, sale_price FROM catalog.product_variants WHERE product_id = $1",
+            "SELECT id, product_id, sku, name, attributes, base_price, sale_price, NOW() as created_at, NOW() as updated_at FROM catalog.product_variants WHERE product_id = $1",
         )
             .bind(product.id)
             .fetch_all(&*self.pool)
@@ -42,7 +42,7 @@ impl CatalogRepository for PostgresCatalogRepository {
 
     async fn get_by_id(&self, id: Uuid) -> Result<Option<ProductWithVariants>, AppError> {
         let product = sqlx::query_as::<_, Product>(
-            "SELECT id, name, slug, description, category_id FROM catalog.products WHERE id = $1",
+            "SELECT id, name, slug, description, category_id, created_at, created_at as updated_at FROM catalog.products WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&*self.pool)
@@ -54,7 +54,7 @@ impl CatalogRepository for PostgresCatalogRepository {
         };
 
         let variants = sqlx::query_as::<_, ProductVariant>(
-            "SELECT id, product_id, sku, name, attributes, base_price, sale_price FROM catalog.product_variants WHERE product_id = $1",
+            "SELECT id, product_id, sku, name, attributes, base_price, sale_price, NOW() as created_at, NOW() as updated_at FROM catalog.product_variants WHERE product_id = $1",
         )
             .bind(product.id)
             .fetch_all(&*self.pool)
@@ -63,16 +63,37 @@ impl CatalogRepository for PostgresCatalogRepository {
         Ok(Some(ProductWithVariants { product, variants }))
     }
 
-    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<Product>, AppError> {
+    async fn list_all(&self, limit: i64, offset: i64) -> Result<Vec<ProductWithVariants>, AppError> {
         let products = sqlx::query_as::<_, Product>(
-            "SELECT id, name, slug, description, category_id FROM catalog.products ORDER BY name LIMIT $1 OFFSET $2",
+            "SELECT id, name, slug, description, category_id, created_at, created_at as updated_at FROM catalog.products ORDER BY name LIMIT $1 OFFSET $2",
         )
             .bind(limit)
             .bind(offset)
             .fetch_all(&*self.pool)
             .await?;
 
-        Ok(products)
+        if products.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let product_ids: Vec<Uuid> = products.iter().map(|p| p.id).collect();
+        let variants = sqlx::query_as::<_, ProductVariant>(
+            "SELECT id, product_id, sku, name, attributes, base_price, sale_price, NOW() as created_at, NOW() as updated_at FROM catalog.product_variants WHERE product_id = ANY($1)",
+        )
+            .bind(&product_ids)
+            .fetch_all(&*self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(products.len());
+        for product in products {
+            let p_variants = variants.iter()
+                .filter(|v| v.product_id == product.id)
+                .cloned()
+                .collect();
+            result.push(ProductWithVariants { product, variants: p_variants });
+        }
+
+        Ok(result)
     }
 
     async fn count_all(&self) -> Result<i64, AppError> {
@@ -103,7 +124,7 @@ impl CatalogRepository for PostgresCatalogRepository {
 
     async fn list_categories(&self) -> Result<Vec<crate::domain::model::Category>, AppError> {
         let rows = sqlx::query_as::<_, crate::domain::model::Category>(
-            "SELECT id, name, slug, parent_id FROM catalog.categories ORDER BY name",
+            "SELECT id, name, slug, parent_id, NOW() as created_at, NOW() as updated_at FROM catalog.categories ORDER BY name",
         )
         .fetch_all(&*self.pool)
         .await?;
@@ -166,6 +187,64 @@ impl CatalogRepository for PostgresCatalogRepository {
             .execute(&*self.pool)
             .await?;
         Ok(())
+    }
+
+    async fn search_products(&self, query: &str, limit: i64, offset: i64) -> Result<Vec<ProductWithVariants>, AppError> {
+        let pattern = format!("%{}%", query);
+        let products = sqlx::query_as::<_, Product>(
+            "SELECT id, name, slug, description, category_id, created_at, created_at as updated_at FROM catalog.products 
+             WHERE name ILIKE $1 OR description ILIKE $1 
+             ORDER BY name LIMIT $2 OFFSET $3",
+        )
+            .bind(pattern)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&*self.pool)
+            .await?;
+
+        if products.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let product_ids: Vec<Uuid> = products.iter().map(|p| p.id).collect();
+        let variants = sqlx::query_as::<_, ProductVariant>(
+            "SELECT id, product_id, sku, name, attributes, base_price, sale_price, NOW() as created_at, NOW() as updated_at FROM catalog.product_variants WHERE product_id = ANY($1)",
+        )
+            .bind(&product_ids)
+            .fetch_all(&*self.pool)
+            .await?;
+
+        let mut result = Vec::with_capacity(products.len());
+        for product in products {
+            let p_variants = variants.iter()
+                .filter(|v| v.product_id == product.id)
+                .cloned()
+                .collect();
+            result.push(ProductWithVariants { product, variants: p_variants });
+        }
+
+        Ok(result)
+    }
+
+    async fn get_categories_by_parent(&self, parent_id: Option<Uuid>) -> Result<Vec<crate::domain::model::Category>, AppError> {
+        let rows = match parent_id {
+            Some(pid) => {
+                sqlx::query_as::<_, crate::domain::model::Category>(
+                    "SELECT id, name, slug, parent_id, NOW() as created_at, NOW() as updated_at FROM catalog.categories WHERE parent_id = $1 ORDER BY name",
+                )
+                .bind(pid)
+                .fetch_all(&*self.pool)
+                .await?
+            }
+            None => {
+                sqlx::query_as::<_, crate::domain::model::Category>(
+                    "SELECT id, name, slug, parent_id, NOW() as created_at, NOW() as updated_at FROM catalog.categories WHERE parent_id IS NULL ORDER BY name",
+                )
+                .fetch_all(&*self.pool)
+                .await?
+            }
+        };
+        Ok(rows)
     }
 
     async fn create_variant(

@@ -29,9 +29,28 @@ pub fn ProfilePage() -> impl IntoView {
     let user_resource =
         LocalResource::new(move || async move { client::get::<User>("/api/v1/identity/me").await });
 
-    let update_error = RwSignal::new(Option::<String>::None);
-    let update_success = RwSignal::new(false);
+    let orders_resource = LocalResource::new(move || {
+        let auth = auth.clone();
+        async move {
+            if let Some(user_id) = auth.current_user_id() {
+                client::ordering::list_recent_orders(user_id).await
+            } else {
+                Ok(vec![])
+            }
+        }
+    });
+
     let (email, set_email) = signal(String::new());
+    let update_success = RwSignal::new(false);
+    let update_error = RwSignal::new(Option::<String>::None);
+
+    // Password Update signals
+    let (old_password, set_old_password) = signal(String::new());
+    let (new_password, set_new_password) = signal(String::new());
+    let (confirm_password, set_confirm_password) = signal(String::new());
+    let pwd_error = RwSignal::new(Option::<String>::None);
+    let pwd_success = RwSignal::new(false);
+    let pwd_loading = RwSignal::new(false);
 
     let on_update = move |e: web_sys::SubmitEvent| {
         e.prevent_default();
@@ -55,6 +74,57 @@ pub fn ProfilePage() -> impl IntoView {
                 }
             }
         });
+    };
+
+    let on_change_password = move |e: web_sys::SubmitEvent| {
+        e.prevent_default();
+        let old = old_password.get();
+        let new = new_password.get();
+        let confirm = confirm_password.get();
+
+        if new != confirm {
+            pwd_error.set(Some("New passwords do not match".to_string()));
+            return;
+        }
+
+        if new.len() < 8 {
+            pwd_error.set(Some("Password must be at least 8 characters".to_string()));
+            return;
+        }
+
+        pwd_loading.set(true);
+        pwd_error.set(None);
+        pwd_success.set(false);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            let req = crate::api::types::ChangePasswordRequest {
+                old_password: old,
+                new_password: new,
+            };
+            match client::identity::change_password(req).await {
+                Ok(_) => {
+                    pwd_success.set(true);
+                    set_old_password.set(String::new());
+                    set_new_password.set(String::new());
+                    set_confirm_password.set(String::new());
+                }
+                Err(e) => {
+                    pwd_error.set(Some(e.user_message().to_string()));
+                }
+            }
+            pwd_loading.set(false);
+        });
+    };
+
+    let on_delete_account = move |_| {
+        let auth = auth.clone();
+        if let Some(user_id) = auth.current_user_id() {
+             wasm_bindgen_futures::spawn_local(async move {
+                if let Ok(_) = client::identity::delete_user(user_id).await {
+                    auth.logout();
+                }
+            });
+        }
     };
 
     view! {
@@ -125,6 +195,106 @@ pub fn ProfilePage() -> impl IntoView {
                             "Save Changes"
                         </button>
                     </form>
+
+                    <div class="mt-12 pt-12 border-t border-gray-100">
+                        <h3 class="text-lg font-bold text-gray-900 mb-6">"Change Password"</h3>
+                        <form on:submit=on_change_password class="space-y-4">
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-gray-400 uppercase tracking-widest">"Old Password"</label>
+                                    <input
+                                        type="password"
+                                        prop:value=move || old_password.get()
+                                        on:input=move |e| set_old_password.set(event_target_value(&e))
+                                        class="w-full px-4 py-3 bg-gray-50 border border-transparent focus:bg-white focus:border-[#FCE300] rounded-xl outline-none transition-all text-sm"
+                                    />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-black text-gray-400 uppercase tracking-widest">"New Password"</label>
+                                    <input
+                                        type="password"
+                                        prop:value=move || new_password.get()
+                                        on:input=move |e| set_new_password.set(event_target_value(&e))
+                                        class="w-full px-4 py-3 bg-gray-50 border border-transparent focus:bg-white focus:border-[#FCE300] rounded-xl outline-none transition-all text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-black text-gray-400 uppercase tracking-widest">"Confirm New Password"</label>
+                                <input
+                                    type="password"
+                                    prop:value=move || confirm_password.get()
+                                    on:input=move |e| set_confirm_password.set(event_target_value(&e))
+                                    class="w-full px-4 py-3 bg-gray-50 border border-transparent focus:bg-white focus:border-[#FCE300] rounded-xl outline-none transition-all text-sm"
+                                />
+                            </div>
+
+                            {move || if let Some(err) = pwd_error.get() {
+                                view! { <p class="text-xs text-red-500 font-bold">{err}</p> }.into_any()
+                            } else if pwd_success.get() {
+                                view! { <p class="text-xs text-emerald-600 font-bold">"Password updated successfully!"</p> }.into_any()
+                            } else {
+                                view! { <div class="h-4"></div> }.into_any()
+                            }}
+
+                            <button
+                                type="submit"
+                                disabled=move || pwd_loading.get()
+                                class="bg-gray-900 hover:bg-black text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg"
+                            >
+                                {move || if pwd_loading.get() { "Updating..." } else { "Update Password" }}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="mt-12 pt-8 border-t border-red-50">
+                        <h3 class="text-lg font-bold text-red-600 mb-2">"Danger Zone"</h3>
+                        <p class="text-sm text-gray-500 mb-6">"Once you delete your account, there is no going back. Please be certain."</p>
+                        <button
+                            on:click=on_delete_account
+                            class="bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold px-8 py-3 rounded-xl transition-all"
+                        >
+                            "Delete Account"
+                        </button>
+                    </div>
+
+                    // Recent Orders Component
+                    <div class="mt-12 pt-12 border-t border-gray-100">
+                        <h3 class="text-lg font-bold text-gray-900 mb-6">"Recent Orders"</h3>
+                        <Suspense fallback=|| view! { <div class="space-y-4">{ (0..3).map(|_| view! { <div class="h-16 bg-gray-50 animate-pulse rounded-2xl"></div> }).collect_view() }</div> }>
+                            {move || orders_resource.get().map(|res| match res.as_ref() {
+                                Ok(orders) if !orders.is_empty() => {
+                                    orders.iter().take(5).map(|o| {
+                                        let date = o.created_at.format("%d/%m/%Y").to_string();
+                                        let total = format!("₫{}k", o.total / 1000);
+                                        let id_short = format!("#{}", &o.id.to_string()[..8]);
+                                        let status_color = match o.status {
+                                            crate::api::types::OrderStatus::Completed => "bg-emerald-50 text-emerald-600",
+                                            crate::api::types::OrderStatus::Cancelled => "bg-rose-50 text-rose-600",
+                                            crate::api::types::OrderStatus::Pending => "bg-amber-50 text-amber-600",
+                                        };
+                                        view! {
+                                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl mb-3 hover:bg-gray-100 transition-colors">
+                                                <div>
+                                                    <p class="text-sm font-bold text-gray-900">{id_short}</p>
+                                                    <p class="text-[11px] text-gray-400 mt-0.5">{date}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-sm font-black text-gray-900">{total}</p>
+                                                    <span class=format!("text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block {}", status_color)>
+                                                        {o.status.to_string()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        }
+                                    }).collect_view().into_any()
+                                },
+                                Ok(_) => view! { <p class="text-sm text-gray-400">"No orders yet. Time to shop!"</p> }.into_any(),
+                                Err(e) => view! { <p class="text-sm text-red-500">{e.user_message().to_string()}</p> }.into_any(),
+                            })}
+                        </Suspense>
+                        <a href="/orders" class="inline-block mt-4 text-sm text-indigo-600 font-bold hover:underline">"View all orders →"</a>
+                    </div>
                 </div>
             </div>
         </div>

@@ -64,7 +64,7 @@ pub fn AdminProductsPage() -> impl IntoView {
     let (v_name, set_v_name) = signal("".to_string());
     let (v_price, set_v_price) = signal("".to_string());
 
-    let products_resource: LocalResource<Vec<crate::api::types::Product>> =
+    let products_resource: LocalResource<Vec<ProductWithVariants>> =
         LocalResource::new(move || async move {
             catalog_api::list_products(1, 100)
                 .await
@@ -92,23 +92,19 @@ pub fn AdminProductsPage() -> impl IntoView {
         let req = req.clone();
         async move { catalog_api::create_product(req).await }
     });
-
     let update_action = Action::new_local(|(id, req): &(Uuid, UpdateProductRequest)| {
         let id = *id;
         let req = req.clone();
         async move { catalog_api::update_product(id, req).await }
     });
-
     let delete_action = Action::new_local(|id: &Uuid| {
         let id = *id;
         async move { catalog_api::delete_product(id).await }
     });
-
     let create_variant_action = Action::new_local(|req: &CreateVariantRequest| {
         let req = req.clone();
         async move { catalog_api::create_variant(req).await }
     });
-
     let delete_variant_action = Action::new_local(|id: &Uuid| {
         let id = *id;
         async move { catalog_api::delete_variant(id).await }
@@ -158,7 +154,7 @@ pub fn AdminProductsPage() -> impl IntoView {
     };
 
     Effect::new(move |_| {
-        if let Some(Ok(_)) = create_variant_action.value().get() {
+        if create_variant_action.value().get().is_some() {
             set_v_sku.set("".to_string());
             set_v_name.set("".to_string());
             set_v_price.set("".to_string());
@@ -167,14 +163,14 @@ pub fn AdminProductsPage() -> impl IntoView {
     });
 
     Effect::new(move |_| {
-        if let Some(Ok(true)) = create_action.value().get() {
+        if create_action.value().get().is_some() {
             set_show_modal.set(false);
             products_resource.refetch();
         }
     });
 
     Effect::new(move |_| {
-        if let Some(Ok(true)) = update_action.value().get() {
+        if update_action.value().get().is_some() {
             set_show_modal.set(false);
             set_editing_product.set(None);
             products_resource.refetch();
@@ -226,63 +222,66 @@ pub fn AdminProductsPage() -> impl IntoView {
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         <Suspense fallback=|| view! { <tr><td colspan="4" class="p-10 text-center text-gray-400">"Loading products..."</td></tr> }>
-                            {move || products_resource.get().map(|list| {
-                                let categories = categories_resource.get().map(|s| (*s).clone()).unwrap_or_default();
-
-                                (*list).iter().map(|p| {
-                                    let p_cloned = p.clone();
-                                    let p_cloned_variant = p.clone();
-                                    let p_cloned_edit = p.clone();
-                                    let p_id = p.id;
-                                    let cat_name = categories.iter()
-                                        .find(|c| c.id == p.category_id)
-                                        .map(|c| c.name.clone())
-                                        .unwrap_or_else(|| "Unknown".to_string());
-
-                                    view! {
-                                        <tr class="hover:bg-gray-50/50 transition-colors group">
-                                            <td class="px-6 py-4 min-w-[200px]">
-                                                <div class="font-bold text-gray-900">{p_id.to_string()}</div>
-                                                <div class="text-[10px] text-gray-400 truncate max-w-[200px]">{p_cloned.name.clone()}</div>
-                                            </td>
-                                            <td class="px-6 py-4 text-xs font-mono text-gray-400">{p_cloned.slug.clone()}</td>
-                                            <td class="px-6 py-4">
-                                                <span class="px-2.5 py-1 rounded-lg bg-gray-50 text-gray-600 text-[10px] font-bold uppercase tracking-wider">
-                                                    {cat_name}
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4 text-right">
-                                                <div class="flex justify-end gap-2">
-                                                    <button
-                                                        class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-1 text-[10px] font-black"
-                                                        on:click=move |_| {
-                                                            set_selected_product_for_variants.set(Some(p_cloned_variant.clone()));
-                                                            set_show_variants_modal.set(true);
-                                                        }
-                                                    >
-                                                        {icon_box()} "VAR"
-                                                    </button>
-                                                    <button
-                                                        class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
-                                                        on:click=move |_| set_editing_product.set(Some(p_cloned_edit.clone()))
-                                                    >
-                                                        {icon_edit()}
-                                                    </button>
-                                                    <button
-                                                        class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                                                        on:click=move |_| {
-                                                            delete_action.dispatch(p_id);
-                                                            products_resource.refetch();
-                                                        }
-                                                    >
-                                                        {icon_trash()}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                }).collect_view()
-                            })}
+                            {move || match (products_resource.get(), categories_resource.get()) {
+                                (Some(p_sw), Some(c_sw)) => {
+                                    let list = &*p_sw;
+                                    let categories = &*c_sw;
+                                    list.iter().map(|pwv| {
+                                        let p = &pwv.product;
+                                        let p_cloned = p.clone();
+                                        let p_cloned_variant = p.clone();
+                                        let p_cloned_edit = p.clone();
+                                        let p_id = p.id;
+                                        let cat_name = categories.iter()
+                                            .find(|c| c.id == p.category_id)
+                                            .map(|c| c.name.clone())
+                                            .unwrap_or_else(|| "Unknown".to_string());
+ 
+                                        view! {
+                                            <tr class="hover:bg-gray-50/50 transition-colors group">
+                                                <td class="px-6 py-4 min-w-[200px]">
+                                                    <div class="font-bold text-gray-900">{p_cloned.name.clone()}</div>
+                                                    <div class="text-[10px] text-gray-400 truncate max-w-[200px]">{"ID: "} {p_id.to_string()}</div>
+                                                </td>
+                                                <td class="px-6 py-4 text-xs font-mono text-gray-400">{p_cloned.slug.clone()}</td>
+                                                <td class="px-6 py-4">
+                                                    <span class="px-2.5 py-1 rounded-lg bg-gray-50 text-gray-600 text-[10px] font-bold uppercase tracking-wider">
+                                                        {cat_name}
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    <div class="flex justify-end gap-2">
+                                                        <button
+                                                            class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-1 text-[10px] font-black"
+                                                            on:click=move |_| {
+                                                                set_selected_product_for_variants.set(Some(p_cloned_variant.clone()));
+                                                                set_show_variants_modal.set(true);
+                                                            }
+                                                        >
+                                                            {icon_box()} "VAR"
+                                                        </button>
+                                                        <button
+                                                            class="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
+                                                            on:click=move |_| set_editing_product.set(Some(p_cloned_edit.clone()))
+                                                        >
+                                                            {icon_edit()}
+                                                        </button>
+                                                        <button
+                                                            class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                                                            on:click=move |_| {
+                                                                delete_action.dispatch(p_id);
+                                                            }
+                                                        >
+                                                            {icon_trash()}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }).collect_view().into_any()
+                                },
+                                _ => view! { <tr><td colspan="4"></td></tr> }.into_any()
+                            }}
                         </Suspense>
                     </tbody>
                 </table>
@@ -331,16 +330,20 @@ pub fn AdminProductsPage() -> impl IntoView {
                                 >
                                     <option value="">"Select Category"</option>
                                     <Suspense fallback=|| view! { <option>"Loading..."</option> }>
-                                        {move || categories_resource.get().map(|list| {
-                                            (*list).iter().map(|c| {
-                                                let is_selected = category_id.get() == c.id.to_string();
-                                                view! {
-                                                    <option value=c.id.to_string() selected=is_selected>
-                                                        {c.name.clone()}
-                                                    </option>
-                                                }
-                                            }).collect_view()
-                                        })}
+                                        {move || match categories_resource.get() {
+                                            Some(sw) => {
+                                                let list = &*sw;
+                                                list.iter().map(|c| {
+                                                    let is_selected = category_id.get() == c.id.to_string();
+                                                    view! {
+                                                        <option value=c.id.to_string() selected=is_selected>
+                                                            {c.name.clone()}
+                                                        </option>
+                                                    }
+                                                }).collect_view().into_any()
+                                            },
+                                            None => view! { <option></option> }.into_any()
+                                        }}
                                     </Suspense>
                                 </select>
                             </div>
@@ -423,42 +426,47 @@ pub fn AdminProductsPage() -> impl IntoView {
                                 // Variants List
                                 <div class="flex-1">
                                     <Suspense fallback=|| view! { <div class="text-center p-10 text-gray-400">"Loading variants..."</div> }>
-                                        {move || variants_resource.get().map(|v_data| match *v_data {
-                                            Some(ref data) => {
-                                                if data.variants.is_empty() {
-                                                    view! { <div class="text-center p-10 text-gray-400 italic">"No variants yet."</div> }.into_any()
-                                                } else {
-                                                    view! {
-                                                        <div class="space-y-3">
-                                                            {data.variants.iter().map(|v| {
-                                                                let v_id = v.id;
-                                                                view! {
-                                                                    <div class="p-4 bg-gray-50 rounded-2xl flex items-center justify-between group">
-                                                                        <div>
-                                                                            <p class="font-bold text-gray-900 text-sm">{v.name.clone()}</p>
-                                                                            <p class="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{v.sku.clone()}</p>
-                                                                        </div>
-                                                                        <div class="flex items-center gap-4">
-                                                                            <div class="text-sm font-black text-gray-900">{"$"}{v.base_price.to_string()}</div>
-                                                                            <button
-                                                                                class="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
-                                                                                on:click=move |_| {
-                                                                                    delete_variant_action.dispatch(v_id);
-                                                                                    variants_resource.refetch();
-                                                                                }
-                                                                            >
-                                                                                {icon_trash()}
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                }
-                                                            }).collect_view()}
-                                                        </div>
-                                                    }.into_any()
+                                        {move || match variants_resource.get() {
+                                            Some(sw) => {
+                                                let v_data = &*sw;
+                                                match v_data {
+                                                    Some(ref data) => {
+                                                        if data.variants.is_empty() {
+                                                            view! { <div class="text-center p-10 text-gray-400 italic">"No variants yet."</div> }.into_any()
+                                                        } else {
+                                                            view! {
+                                                                <div class="space-y-3">
+                                                                    {data.variants.iter().map(|v| {
+                                                                        let v_id = v.id;
+                                                                        view! {
+                                                                            <div class="p-4 bg-gray-50 rounded-2xl flex items-center justify-between group">
+                                                                                <div>
+                                                                                    <p class="font-bold text-gray-900 text-sm">{v.name.clone()}</p>
+                                                                                    <p class="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{v.sku.clone()}</p>
+                                                                                </div>
+                                                                                <div class="flex items-center gap-4">
+                                                                                    <div class="text-sm font-black text-gray-900">{"$"}{v.base_price.to_string()}</div>
+                                                                                    <button
+                                                                                        class="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer"
+                                                                                        on:click=move |_| {
+                                                                                            delete_variant_action.dispatch(v_id);
+                                                                                        }
+                                                                                    >
+                                                                                        {icon_trash()}
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        }
+                                                                    }).collect_view().into_any()}
+                                                                </div>
+                                                            }.into_any()
+                                                        }
+                                                    },
+                                                    None => view! { <div class="text-red-500">"Failed to load variants"</div> }.into_any()
                                                 }
                                             },
-                                            None => view! { <div class="text-red-500">"Failed to load variants"</div> }.into_any()
-                                        })}
+                                            None => view! { <div class="col-span-3"></div> }.into_any()
+                                        }}
                                     </Suspense>
                                 </div>
                             </div>

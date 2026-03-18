@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use crate::api::client::memberships::*;
 
 fn icon_crown() -> impl IntoView {
     view! {
@@ -9,60 +10,11 @@ fn icon_crown() -> impl IntoView {
     }
 }
 
-struct Member {
-    name: &'static str,
-    email: &'static str,
-    tier: &'static str,
-    joined: &'static str,
-    spent: &'static str,
-}
 
 #[component]
 pub fn AdminMembershipsPage() -> impl IntoView {
-    let members = vec![
-        Member {
-            name: "Nguyễn Văn An",
-            email: "nva@email.com",
-            tier: "Gold",
-            joined: "Jan 2025",
-            spent: "₫8.2M",
-        },
-        Member {
-            name: "Trần Thị Bình",
-            email: "ttb@email.com",
-            tier: "Platinum",
-            joined: "Dec 2024",
-            spent: "₫14.7M",
-        },
-        Member {
-            name: "Lê Hoàng Cường",
-            email: "lhc@email.com",
-            tier: "Silver",
-            joined: "Mar 2025",
-            spent: "₫3.1M",
-        },
-        Member {
-            name: "Phạm Thu Dung",
-            email: "ptd@email.com",
-            tier: "Bronze",
-            joined: "Feb 2026",
-            spent: "₫890k",
-        },
-        Member {
-            name: "Hoàng Minh Đức",
-            email: "hmd@email.com",
-            tier: "Gold",
-            joined: "Jun 2024",
-            spent: "₫9.5M",
-        },
-        Member {
-            name: "Vũ Thị Hoa",
-            email: "vth@email.com",
-            tier: "Silver",
-            joined: "Sep 2025",
-            spent: "₫2.4M",
-        },
-    ];
+    let summary_resource = LocalResource::new(|| async move { get_membership_summary().await });
+    let members_resource = LocalResource::new(|| async move { list_memberships().await });
 
     let tiers = [
         (
@@ -105,34 +57,59 @@ pub fn AdminMembershipsPage() -> impl IntoView {
                 </div>
                 <div class="flex items-center gap-1.5 px-3 py-1.5 bg-[#FCE300]/20 border border-[#FCE300] rounded-xl">
                     <span class="text-amber-600">{icon_crown()}</span>
-                    <span class="text-xs font-bold text-amber-700">"629 Total Members"</span>
+                    <span class="text-xs font-bold text-amber-700">
+                        {move || match summary_resource.get() {
+                            Some(sw) => {
+                                let res = &*sw;
+                                match res {
+                                    Ok(s) => format!("{} Total Members", s.total_members),
+                                    _ => "... Total Members".to_string()
+                                }
+                            },
+                            _ => "... Total Members".to_string()
+                        }}
+                    </span>
                 </div>
             </div>
 
             // Tier cards
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {tiers.iter().map(|&(tier_name, count, range, color, bg)| view! {
-                    <div class=format!("rounded-2xl p-5 border shadow-sm cursor-pointer hover:shadow-md transition-shadow {}", bg)>
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style={format!("background:{}20", color)}>
-                                <span class="text-lg font-black" style={format!("color:{}", color)}>
-                                    {match tier_name {
-                                        "Bronze"   => "B",
-                                        "Silver"   => "S",
-                                        "Gold"     => "G",
-                                        _          => "P",
-                                    }}
-                                </span>
+                {tiers.iter().map(|&(tier_name, _count, range, color, bg)| {
+                    let tier_name_str = tier_name.to_string();
+                    view! {
+                        <div class=format!("rounded-2xl p-5 border shadow-sm cursor-pointer hover:shadow-md transition-shadow {}", bg)>
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-8 h-8 rounded-xl flex items-center justify-center" style={format!("background:{}20", color)}>
+                                    <span class="text-lg font-black" style={format!("color:{}", color)}>
+                                        {match tier_name {
+                                            "Bronze"   => "B",
+                                            "Silver"   => "S",
+                                            "Gold"     => "G",
+                                            _          => "P",
+                                        }}
+                                    </span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">{tier_name}</span>
                             </div>
-                            <span class="text-sm font-bold text-gray-900">{tier_name}</span>
+                            {move || {
+                                let tier_count = summary_resource.get()
+                                    .and_then(|sw| {
+                                        let res = &*sw;
+                                        match res {
+                                            Ok(s) => s.tier_counts.get(&tier_name_str).cloned(),
+                                            _ => None
+                                        }
+                                    })
+                                    .unwrap_or(0);
+                                view! { <p class="text-3xl font-black mt-1" style={format!("color:{}", color)}>{tier_count}</p> }
+                            }}
+                            <p class="text-[11px] text-gray-400 mt-1">"members"</p>
+                            <div class="mt-2 pt-2 border-t border-gray-200">
+                                <p class="text-[10px] text-gray-400">"Spend range"</p>
+                                <p class="text-xs font-semibold text-gray-700">{range}</p>
+                            </div>
                         </div>
-                        <p class="text-3xl font-black mt-1" style={format!("color:{}", color)}>{count}</p>
-                        <p class="text-[11px] text-gray-400 mt-1">"members"</p>
-                        <div class="mt-2 pt-2 border-t border-gray-200">
-                            <p class="text-[10px] text-gray-400">"Spend range"</p>
-                            <p class="text-xs font-semibold text-gray-700">{range}</p>
-                        </div>
-                    </div>
+                    }
                 }).collect_view()}
             </div>
 
@@ -201,35 +178,52 @@ pub fn AdminMembershipsPage() -> impl IntoView {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
-                            {members.into_iter().map(|m| {
-                                let (tier_color, tier_bg) = match m.tier {
-                                    "Platinum" => ("#6366F1", "bg-indigo-50 border-indigo-100 text-indigo-600"),
-                                    "Gold"     => ("#F59E0B", "bg-amber-50 border-amber-100 text-amber-600"),
-                                    "Silver"   => ("#9CA3AF", "bg-gray-100 border-gray-200 text-gray-600"),
-                                    _          => ("#CD7F32", "bg-orange-50 border-orange-100 text-orange-600"),
-                                };
-                                view! {
-                                    <tr class="hover:bg-gray-50 transition-colors">
-                                        <td class="px-5 py-3.5">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                                                    style={format!("background:{}", tier_color)}>
-                                                    {m.name.chars().next().unwrap_or('?').to_string()}
-                                                </div>
-                                                <span class="font-semibold text-gray-900">{m.name}</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3.5 text-gray-400 hidden sm:table-cell">{m.email}</td>
-                                        <td class="px-4 py-3.5 text-center">
-                                            <span class=format!("text-[10px] font-bold px-2.5 py-1 rounded-full border {}", tier_bg)>
-                                                {m.tier}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3.5 text-center text-gray-400 hidden md:table-cell">{m.joined}</td>
-                                        <td class="px-4 py-3.5 text-right text-gray-900 font-bold">{m.spent}</td>
-                                    </tr>
-                                }
-                            }).collect_view()}
+                            <Suspense fallback=move || view! { <tr><td colspan="5" class="text-center py-4">"Loading members..."</td></tr> }>
+                                {move || match members_resource.get() {
+                                    Some(sw) => {
+                                        let res = &*sw;
+                                        match res {
+                                            Ok(items) => items.iter().map(|m| {
+                                                let email = m.email.clone();
+                                                let (tier_color, tier_bg) = match m.tier.as_str() {
+                                                    "Platinum" => ("#6366F1", "bg-indigo-50 border-indigo-100 text-indigo-600"),
+                                                    "Gold"     => ("#F59E0B", "bg-amber-50 border-amber-100 text-amber-600"),
+                                                    "Silver"   => ("#9CA3AF", "bg-gray-100 border-gray-200 text-gray-600"),
+                                                    _          => ("#CD7F32", "bg-orange-50 border-orange-100 text-orange-600"),
+                                                };
+                                                let initial = email.chars().next().unwrap_or('?').to_string();
+                                                let tier = m.tier.clone();
+                                                let joined = m.joined_at.format("%d/%m/%Y").to_string();
+                                                let spent = format!("₫{}k", m.total_spent / rust_decimal::Decimal::from(1000u32));
+
+                                                view! {
+                                                    <tr class="hover:bg-gray-50 transition-colors">
+                                                        <td class="px-5 py-3.5">
+                                                            <div class="flex items-center gap-3">
+                                                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                                                    style={format!("background:{}", tier_color)}>
+                                                                    {initial}
+                                                                </div>
+                                                                <span class="font-semibold text-gray-900">{email}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-3.5 text-gray-400 hidden sm:table-cell text-xs">{m.email.clone()}</td>
+                                                        <td class="px-4 py-3.5 text-center">
+                                                            <span class=format!("text-[10px] font-bold px-2.5 py-1 rounded-full border {}", tier_bg)>
+                                                                {tier}
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-4 py-3.5 text-center text-gray-400 hidden md:table-cell">{joined}</td>
+                                                        <td class="px-4 py-3.5 text-right text-gray-900 font-bold">{spent}</td>
+                                                    </tr>
+                                                }
+                                            }).collect_view().into_any(),
+                                            _ => view! { <tr><td colspan="5" class="text-center py-4">"No members found"</td></tr> }.into_any()
+                                        }
+                                    },
+                                    None => view! { <tr><td colspan="5" class="text-center py-4">"No data"</td></tr> }.into_any()
+                                }}
+                            </Suspense>
                         </tbody>
                     </table>
                 </div>

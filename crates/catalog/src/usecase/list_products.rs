@@ -1,5 +1,5 @@
 use crate::domain::catalog_repository::CatalogRepository;
-use crate::domain::model::PaginatedProducts;
+use crate::domain::model::{PaginatedProducts, ProductWithVariants};
 use shared::AppError;
 use std::sync::Arc;
 

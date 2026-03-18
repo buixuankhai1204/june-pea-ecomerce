@@ -1,9 +1,13 @@
-use crate::domain::model::Stock;
+use crate::domain::model::{Stock, Supplier};
 use crate::domain::repository::InventoryRepository;
 use crate::usecase::{
     decrease_stock::DecreaseStockUsecase, get_stock::GetStockUsecase,
     increase_stock::IncreaseStockUsecase, list_all_stocks::ListAllStocksUsecase,
     update_stock::UpdateStockUsecase,
+    list_suppliers::ListSuppliersUsecase,
+    create_supplier::CreateSupplierUsecase,
+    delete_supplier::DeleteSupplierUsecase,
+    check_low_stock_alerts::CheckLowStockAlertsUsecase,
 };
 use axum::extract::State;
 use axum::routing::post;
@@ -21,6 +25,10 @@ pub struct InventoryUsecase {
     get_stock_usecase: Arc<GetStockUsecase>,
     update_stock_usecase: Arc<UpdateStockUsecase>,
     list_all_stocks_usecase: Arc<ListAllStocksUsecase>,
+    list_suppliers_usecase: Arc<ListSuppliersUsecase>,
+    create_supplier_usecase: Arc<CreateSupplierUsecase>,
+    delete_supplier_usecase: Arc<DeleteSupplierUsecase>,
+    check_low_stock_alerts_usecase: Arc<CheckLowStockAlertsUsecase>,
 }
 
 impl InventoryUsecase {
@@ -30,7 +38,11 @@ impl InventoryUsecase {
             increase_stock_usecase: Arc::new(IncreaseStockUsecase::new(repo.clone(), uow.clone())),
             get_stock_usecase: Arc::new(GetStockUsecase::new(repo.clone(), uow.clone())),
             update_stock_usecase: Arc::new(UpdateStockUsecase::new(repo.clone(), uow.clone())),
-            list_all_stocks_usecase: Arc::new(ListAllStocksUsecase::new(repo, uow)),
+            list_all_stocks_usecase: Arc::new(ListAllStocksUsecase::new(repo.clone(), uow.clone())),
+            list_suppliers_usecase: Arc::new(ListSuppliersUsecase::new(repo.clone(), uow.clone())),
+            create_supplier_usecase: Arc::new(CreateSupplierUsecase::new(repo.clone(), uow.clone())),
+            delete_supplier_usecase: Arc::new(DeleteSupplierUsecase::new(repo.clone(), uow.clone())),
+            check_low_stock_alerts_usecase: Arc::new(CheckLowStockAlertsUsecase::new(repo.clone(), uow.clone())),
         }
     }
 
@@ -53,6 +65,22 @@ impl InventoryUsecase {
     pub fn list_all_stocks_usecase(&self) -> Arc<ListAllStocksUsecase> {
         self.list_all_stocks_usecase.clone()
     }
+
+    pub fn list_suppliers_usecase(&self) -> Arc<ListSuppliersUsecase> {
+        self.list_suppliers_usecase.clone()
+    }
+
+    pub fn create_supplier_usecase(&self) -> Arc<CreateSupplierUsecase> {
+        self.create_supplier_usecase.clone()
+    }
+
+    pub fn delete_supplier_usecase(&self) -> Arc<DeleteSupplierUsecase> {
+        self.delete_supplier_usecase.clone()
+    }
+
+    pub fn check_low_stock_alerts_usecase(&self) -> Arc<CheckLowStockAlertsUsecase> {
+        self.check_low_stock_alerts_usecase.clone()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +95,13 @@ struct UpdateStockRequest {
     quantity: i32,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreateSupplierRequest {
+    pub name: String,
+    pub contact: String,
+    pub location: String,
+}
+
 pub fn init() -> Router<InventoryUsecase> {
     Router::new()
         .route("/stock/{id}", axum::routing::get(get_stock_handler))
@@ -74,6 +109,10 @@ pub fn init() -> Router<InventoryUsecase> {
         .route("/increase-stock", post(increase_stock_handler))
         .route("/update-stock", post(update_stock_handler))
         .route("/list-all", axum::routing::get(list_all_stocks_handler))
+        .route("/suppliers", axum::routing::get(list_suppliers_handler))
+        .route("/suppliers", post(create_supplier_handler))
+        .route("/suppliers/{id}", axum::routing::delete(delete_supplier_handler))
+        .route("/stock/low-alerts", axum::routing::get(check_low_stock_handler))
 }
 
 async fn decrease_stock_handler(
@@ -124,4 +163,45 @@ async fn list_all_stocks_handler(
     let usecase = state.list_all_stocks_usecase();
     let stocks = usecase.execute().await?;
     Ok(Json(stocks))
+}
+
+async fn list_suppliers_handler(
+    State(state): State<InventoryUsecase>,
+) -> Result<Json<Vec<Supplier>>, AppError> {
+    let usecase = state.list_suppliers_usecase();
+    let suppliers = usecase.execute().await?;
+    Ok(Json(suppliers))
+}
+
+async fn create_supplier_handler(
+    State(state): State<InventoryUsecase>,
+    Json(body): Json<CreateSupplierRequest>,
+) -> Result<Json<bool>, AppError> {
+    let usecase = state.create_supplier_usecase();
+    usecase.execute(body.name, body.contact, body.location).await?;
+    Ok(Json(true))
+}
+
+async fn delete_supplier_handler(
+    State(state): State<InventoryUsecase>,
+    axum::extract::Path(id): axum::extract::Path<Uuid>,
+) -> Result<Json<bool>, AppError> {
+    let usecase = state.delete_supplier_usecase();
+    usecase.execute(id).await?;
+    Ok(Json(true))
+}
+
+async fn check_low_stock_handler(
+    State(state): State<InventoryUsecase>,
+    axum::extract::Query(query): axum::extract::Query<CheckLowStockQuery>,
+) -> Result<Json<Vec<Stock>>, AppError> {
+    let usecase = state.check_low_stock_alerts_usecase();
+    let threshold = query.threshold.unwrap_or(10);
+    let stocks = usecase.execute(threshold).await?;
+    Ok(Json(stocks))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckLowStockQuery {
+    pub threshold: Option<i32>,
 }

@@ -127,4 +127,31 @@ impl CouponRepository for PostgresCouponRepository {
 
         Ok(())
     }
+
+    async fn apply_category_discount(
+        &self,
+        _exec: &mut dyn DbExecutor,
+        category_id: uuid::Uuid,
+        percent: i32,
+    ) -> Result<(), AppError> {
+        let factor = (100 - percent) as f64 / 100.0;
+        
+        // Update sale_price based on base_price and the percentage discount for all products in the category
+        sqlx::query(
+            r#"
+            UPDATE catalog.product_variants
+            SET sale_price = (base_price * $1)
+            FROM catalog.products
+            WHERE catalog.product_variants.product_id = catalog.products.id
+            AND catalog.products.category_id = $2
+            "#
+        )
+        .bind(factor)
+        .bind(category_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_| AppError::InternalServerError)?;
+
+        Ok(())
+    }
 }

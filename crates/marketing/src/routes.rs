@@ -4,12 +4,14 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use shared::AppError;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::domain::model::Coupon;
 use crate::usecase::{
     create_coupon::CreateCouponUsecase, deactivate_coupon::DeactivateCouponUsecase,
     delete_coupon::DeleteCouponUsecase, list_coupons::ListCouponsUsecase,
     validate_coupon::ValidateCouponUsecase,
+    apply_category_discount::ApplyCategoryDiscountUsecase,
 };
 
 #[derive(Clone)]
@@ -19,6 +21,7 @@ pub struct MarketingUsecase {
     list_coupons: Arc<ListCouponsUsecase>,
     deactivate_coupon: Arc<DeactivateCouponUsecase>,
     delete_coupon: Arc<DeleteCouponUsecase>,
+    apply_category_discount: Arc<ApplyCategoryDiscountUsecase>,
 }
 
 impl MarketingUsecase {
@@ -28,6 +31,7 @@ impl MarketingUsecase {
         list_coupons: Arc<ListCouponsUsecase>,
         deactivate_coupon: Arc<DeactivateCouponUsecase>,
         delete_coupon: Arc<DeleteCouponUsecase>,
+        apply_category_discount: Arc<ApplyCategoryDiscountUsecase>,
     ) -> Self {
         Self {
             create_coupon,
@@ -35,6 +39,7 @@ impl MarketingUsecase {
             list_coupons,
             deactivate_coupon,
             delete_coupon,
+            apply_category_discount,
         }
     }
 
@@ -57,6 +62,10 @@ impl MarketingUsecase {
     pub fn delete_coupon(&self) -> Arc<DeleteCouponUsecase> {
         self.delete_coupon.clone()
     }
+
+    pub fn apply_category_discount(&self) -> Arc<ApplyCategoryDiscountUsecase> {
+        self.apply_category_discount.clone()
+    }
 }
 
 pub fn init() -> Router<MarketingUsecase> {
@@ -71,6 +80,7 @@ pub fn init() -> Router<MarketingUsecase> {
             "/coupons/{code}/deactivate",
             patch(deactivate_coupon_handler),
         )
+        .route("/discounts/category", post(apply_category_discount_handler))
 }
 
 pub fn init_public() -> Router<MarketingUsecase> {
@@ -148,5 +158,20 @@ async fn delete_coupon_handler(
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_coupon();
     usecase.execute(&code).await?;
+    Ok(Json(true))
+}
+
+#[derive(Debug, Deserialize)]
+struct ApplyCategoryDiscountRequest {
+    category_id: Uuid,
+    percent: i32,
+}
+
+async fn apply_category_discount_handler(
+    State(state): State<MarketingUsecase>,
+    Json(body): Json<ApplyCategoryDiscountRequest>,
+) -> Result<Json<bool>, AppError> {
+    let usecase = state.apply_category_discount();
+    usecase.execute(body.category_id, body.percent).await?;
     Ok(Json(true))
 }

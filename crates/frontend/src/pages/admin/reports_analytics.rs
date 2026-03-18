@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use crate::api::client::analytics::*;
 
 fn sparkline(points: &[f64], color: &str) -> impl IntoView {
     let w = 200.0_f64;
@@ -53,44 +54,18 @@ fn icon_download() -> impl IntoView {
 pub fn AdminReportsAnalyticsPage() -> impl IntoView {
     let chart_toggle = RwSignal::new("Monthly");
 
-    let revenue_points = vec![
-        42.0, 58.0, 51.0, 73.0, 64.0, 88.0, 72.0, 95.0, 84.0, 110.0, 98.0, 128.0,
-    ];
-    let order_points = vec![
-        840.0, 1020.0, 920.0, 1150.0, 1080.0, 1320.0, 1240.0, 1580.0, 1420.0, 1780.0, 1640.0,
-        1920.0,
-    ];
+    let revenue_resource = LocalResource::new(|| async move { get_revenue_analytics().await });
+    let summary_resource = LocalResource::new(|| async move { get_dashboard_summary().await });
+    let categories_resource = LocalResource::new(|| async move { get_category_breakdown().await });
 
     let top_products = [
-        ("Áo Thun Modal AirDry", 420, "#6366F1"),
-        ("Áo Sơ Mi Non-Iron", 310, "#F59E0B"),
-        ("Áo Polo Raglan Flex", 268, "#10B981"),
-        ("Áo Khoác Worker", 145, "#F43F5E"),
-        ("Áo Thun Boxy Oversize", 98, "#8B5CF6"),
+        ("Cà Phê Muối", 420, "#FCE300"),
+        ("Trà Đào Cam Sả", 380, "#FDBA74"),
+        ("Bạc Xỉu", 290, "#94A3B8"),
+        ("Trà Sữa Khoai Môn", 150, "#C084FC"),
     ];
 
-    let traffic_sources = [
-        ("Direct", 38, "#6366F1"),
-        ("Social", 27, "#F59E0B"),
-        ("Search", 22, "#10B981"),
-        ("Referral", 13, "#F43F5E"),
-    ];
-
-    let monthly_data = [
-        ("Jan", 42.0_f64),
-        ("Feb", 58.0),
-        ("Mar", 51.0),
-        ("Apr", 73.0),
-        ("May", 64.0),
-        ("Jun", 88.0),
-        ("Jul", 72.0),
-        ("Aug", 95.0),
-        ("Sep", 84.0),
-        ("Oct", 110.0),
-        ("Nov", 98.0),
-        ("Dec", 128.0),
-    ];
-    let max_val = monthly_data.iter().map(|(_, v)| *v).fold(0.0_f64, f64::max);
+    let order_points = [45.0, 52.0, 48.0, 70.0, 65.0, 85.0, 68.0, 92.0, 88.0, 105.0, 110.0, 125.0];
 
     view! {
         <div class="p-6 space-y-6">
@@ -122,20 +97,40 @@ pub fn AdminReportsAnalyticsPage() -> impl IntoView {
 
             // KPI row
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    ("Total Revenue",    "₫128.4M", "+12.5%", "#6366F1", "bg-indigo-50 border-indigo-100"),
-                    ("Total Orders",     "3,247",   "+8.1%",  "#10B981", "bg-emerald-50 border-emerald-100"),
-                    ("Avg. Order Value", "₫284k",   "+3.2%",  "#F59E0B", "bg-amber-50 border-amber-100"),
-                    ("Return Rate",      "2.4%",    "-0.8%",  "#F43F5E", "bg-rose-50 border-rose-100"),
-                ].iter().map(|&(label, val, delta, color, bg)| view! {
-                    <div class=format!("rounded-2xl p-5 border shadow-sm {}", bg)>
-                        <p class="text-xs text-gray-500 font-medium">{label}</p>
-                        <p class="text-2xl font-black mt-1.5" style={format!("color:{}", color)}>{val}</p>
-                        <p class="text-xs mt-1 font-semibold" style={format!("color:{}", if delta.starts_with('+') { "#10B981" } else { "#F43F5E" })}>
-                            {delta} " vs last period"
-                        </p>
-                    </div>
-                }).collect_view()}
+                <div class="rounded-2xl p-5 border shadow-sm bg-indigo-50 border-indigo-100">
+                    <p class="text-xs text-gray-500 font-medium">"Total Revenue"</p>
+                    {move || match summary_resource.get() {
+                        Some(res) => match &*res {
+                            Ok(s) => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">{format!("₫{}k", s.total_revenue / 1000)}</p> }.into_any(),
+                            _ => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">"₫..."</p> }.into_any()
+                        },
+                        _ => view! { <p class="text-2xl font-black mt-1.5 text-indigo-600">"₫..."</p> }.into_any()
+                    }}
+                </div>
+                <div class="rounded-2xl p-5 border shadow-sm bg-emerald-50 border-emerald-100">
+                    <p class="text-xs text-gray-500 font-medium">"Total Orders"</p>
+                    {move || match summary_resource.get() {
+                        Some(res) => match &*res {
+                            Ok(s) => view! { <p class="text-2xl font-black mt-1.5 text-emerald-600">{s.today_orders}</p> }.into_any(),
+                            _ => view! { <p class="text-2xl font-black mt-1.5 text-emerald-600">"..."</p> }.into_any()
+                        },
+                        _ => view! { <p class="text-2xl font-black mt-1.5 text-emerald-600">"..."</p> }.into_any()
+                    }}
+                </div>
+                <div class="rounded-2xl p-5 border shadow-sm bg-amber-50 border-amber-100">
+                    <p class="text-xs text-gray-500 font-medium">"Stock Accuracy"</p>
+                    {move || match summary_resource.get() {
+                        Some(res) => match &*res {
+                            Ok(s) => view! { <p class="text-2xl font-black mt-1.5 text-amber-500">{format!("{:.0}%", s.stock_accuracy)}</p> }.into_any(),
+                            _ => view! { <p class="text-2xl font-black mt-1.5 text-amber-500">"..."</p> }.into_any()
+                        },
+                        _ => view! { <p class="text-2xl font-black mt-1.5 text-amber-500">"..."</p> }.into_any()
+                    }}
+                </div>
+                <div class="rounded-2xl p-5 border shadow-sm bg-rose-50 border-rose-100">
+                    <p class="text-xs text-gray-500 font-medium">"Return Rate"</p>
+                    <p class="text-2xl font-black mt-1.5 text-rose-600">"2.4%"</p>
+                </div>
             </div>
 
             // Revenue chart + traffic source
@@ -156,59 +151,58 @@ pub fn AdminReportsAnalyticsPage() -> impl IntoView {
                     </div>
 
                     // Bar chart
-                    <div class="flex items-end gap-1.5 h-36">
-                        {monthly_data.iter().map(|&(month, val)| {
-                            let pct = (val / max_val * 100.0) as u32;
-                            let is_max = val == max_val;
-                            view! {
-                                <div class="flex-1 flex flex-col items-center gap-1">
-                                    <div class="w-full bg-gray-100 rounded-t-lg overflow-hidden" style="height:120px;">
-                                        <div class=move || format!("w-full rounded-t-lg transition-all duration-700 {}",
-                                            if is_max { "bg-[#FCE300]" } else { "bg-indigo-200 hover:bg-indigo-400" })
-                                            style={format!("height:{}%; margin-top:{}%", pct, 100 - pct)}>
-                                        </div>
-                                    </div>
-                                    <span class="text-[9px] text-gray-400">{month}</span>
-                                </div>
-                            }
-                        }).collect_view()}
-                    </div>
-
-                    // Area chart below
-                    <div class="mt-4 h-16 bg-gray-50 rounded-xl overflow-hidden">
-                        {sparkline(&revenue_points, "#6366F1")}
+                    // Area chart 
+                    <div class="h-64 bg-gray-50 rounded-xl overflow-hidden">
+                        <Suspense fallback=move || view! { <p>"Loading charts..."</p> }>
+                            {move || match revenue_resource.get() {
+                                Some(res) => match &*res {
+                                    Ok(points) => {
+                                        let data: Vec<f64> = points.iter().map(|p| p.value as f64).collect();
+                                        view! { {sparkline(&data, "#6366F1")} }.into_any()
+                                    },
+                                    _ => view! { <p>"Chart error"</p> }.into_any()
+                                },
+                                None => view! { <p>"No data"</p> }.into_any()
+                            }}
+                        </Suspense>
                     </div>
                 </div>
 
                 // Traffic sources (1/3)
                 <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <h2 class="text-sm font-bold text-gray-900 mb-4">"Traffic Sources"</h2>
-
-                    // Visual ring (simple)
-                    <div class="h-4 rounded-full overflow-hidden flex mb-5">
-                        {traffic_sources.iter().map(|&(_, pct, color)| view! {
-                            <div class="h-full transition-all" style={format!("width:{}%; background:{}", pct, color)}></div>
-                        }).collect_view()}
-                    </div>
+                    <h2 class="text-sm font-bold text-gray-900 mb-4">"Category Breakdown"</h2>
 
                     <div class="space-y-3.5">
-                        {traffic_sources.iter().map(|&(name, pct, color)| view! {
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                                    style={format!("background:{}20", color)}>
-                                    <span class="w-2.5 h-2.5 rounded-full" style={format!("background:{}", color)}></span>
-                                </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between text-xs mb-1.5">
-                                        <span class="font-semibold text-gray-700">{name}</span>
-                                        <span class="text-gray-900 font-bold">{pct}"%"</span>
-                                    </div>
-                                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full" style={format!("width:{}%; background:{}", pct, color)}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        }).collect_view()}
+                        <Suspense fallback=move || view! { <p>"Loading..."</p> }>
+                            {move || match categories_resource.get() {
+                                Some(sw) => {
+                                    let res = &*sw;
+                                    match res {
+                                        Ok(items) => items.iter().map(|s| {
+                                            view! {
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                                                        style={format!("background:{}20", s.color)}>
+                                                        <span class="w-2.5 h-2.5 rounded-full" style={format!("background:{}", s.color)}></span>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <div class="flex items-center justify-between text-xs mb-1.5">
+                                                            <span class="font-semibold text-gray-700">{s.category_name.clone()}</span>
+                                                            <span class="text-gray-900 font-bold">{s.sales_percentage}"%"</span>
+                                                        </div>
+                                                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div class="h-full rounded-full" style={format!("width:{}%; background:{}", s.sales_percentage, s.color)}></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }).collect_view().into_any(),
+                                        _ => view! { <p>"No data"</p> }.into_any()
+                                    }
+                                },
+                                None => view! { <p>"No data"</p> }.into_any()
+                            }}
+                        </Suspense>
                     </div>
                 </div>
             </div>

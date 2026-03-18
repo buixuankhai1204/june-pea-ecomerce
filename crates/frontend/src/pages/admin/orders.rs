@@ -56,6 +56,17 @@ pub fn AdminOrdersPage() -> impl IntoView {
         async move { crate::api::client::ordering::place_order(req).await }
     });
 
+    let update_note_action = Action::new_local(|(id, note): &(Uuid, String)| {
+        let id = *id;
+        let note = note.clone();
+        async move { crate::api::client::ordering::update_order_note(id, &note).await }
+    });
+
+    let refund_action = Action::new_local(|id: &Uuid| {
+        let id = *id;
+        async move { crate::api::client::payment::refund_payment(id).await }
+    });
+
     let on_create_submit = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
         let customer_id = Uuid::parse_str(&customer_id_str.get()).ok();
@@ -69,7 +80,6 @@ pub fn AdminOrdersPage() -> impl IntoView {
                     quantity: quantity.get(),
                     unit_price: price.get(),
                 }],
-                coupon_code: None,
             });
         }
     };
@@ -77,6 +87,8 @@ pub fn AdminOrdersPage() -> impl IntoView {
     Effect::new(move |_| {
         if update_status_action.value().get().is_some()
             || create_order_action.value().get().is_some()
+            || update_note_action.value().get().is_some()
+            || refund_action.value().get().is_some()
         {
             if create_order_action.value().get().is_some() {
                 set_show_create_modal.set(false);
@@ -86,7 +98,8 @@ pub fn AdminOrdersPage() -> impl IntoView {
     });
 
     let filtered_orders = move || {
-        orders_resource.get().and_then(|res| {
+        orders_resource.get().and_then(|sw| {
+            let res = &*sw;
             res.as_ref().ok().map(|orders| {
                 orders
                     .iter()
@@ -183,10 +196,10 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                         view! {
                                             <tr class="hover:bg-gray-50 transition-colors duration-100 group">
                                                 <td class="px-5 py-3.5 font-mono text-indigo-600 font-semibold whitespace-nowrap">
-                                                    {format!("#{}", &o.id.to_string()[..8])}
+                                                    {format!("#{}", o.id.to_string().chars().take(8).collect::<String>())}
                                                 </td>
                                                 <td class="px-4 py-3.5 text-gray-800 font-medium whitespace-nowrap">
-                                                    {o.customer_id.to_string()}
+                                                    {o.customer_id.map(|id| id.to_string()).unwrap_or_else(|| "Guest".to_string())}
                                                 </td>
                                                 <td class="px-4 py-3.5 text-gray-400 hidden sm:table-cell whitespace-nowrap">
                                                     {o.created_at.format("%d/%m/%Y").to_string()}
@@ -201,6 +214,26 @@ pub fn AdminOrdersPage() -> impl IntoView {
                                                 </td>
                                                 <td class="px-4 py-3.5 text-right">
                                                     <div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            class="text-blue-600 hover:text-blue-900 font-bold cursor-pointer"
+                                                            on:click=move |_| {
+                                                                if let Some(note) = web_sys::window().and_then(|w| w.prompt_with_message("Enter order note:").ok().flatten()) {
+                                                                    update_note_action.dispatch((o_id, note));
+                                                                }
+                                                            }
+                                                        >
+                                                            "Note"
+                                                        </button>
+                                                        <button
+                                                            class="text-orange-600 hover:text-orange-900 font-bold cursor-pointer"
+                                                            on:click=move |_| {
+                                                                if web_sys::window().map(|w| w.confirm_with_message("Refund this order?").unwrap_or(false)).unwrap_or(false) {
+                                                                    refund_action.dispatch(o_id);
+                                                                }
+                                                            }
+                                                        >
+                                                            "Refund"
+                                                        </button>
                                                         <button
                                                             class="text-emerald-600 hover:text-emerald-900 font-bold cursor-pointer"
                                                             on:click=move |_| {

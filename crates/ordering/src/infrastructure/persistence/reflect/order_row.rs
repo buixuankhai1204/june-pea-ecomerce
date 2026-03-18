@@ -8,6 +8,7 @@ pub struct OrderRow {
     pub customer_id: Option<Uuid>,
     pub status: String,
     pub total: i64,
+    pub note: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -22,6 +23,7 @@ impl From<OrderRow> for Order {
                 _ => OrderStatus::Pending,
             },
             total: row.total,
+            note: row.note,
             created_at: row.created_at,
         }
     }

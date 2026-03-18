@@ -1,23 +1,14 @@
-use crate::api::client::catalog as catalog_api;
-use crate::api::types::CreateCategoryRequest;
-use leptos::either::Either;
 use leptos::prelude::*;
+use crate::api::client::catalog::*;
+use crate::api::types::CreateCategoryRequest;
 use uuid::Uuid;
 
 fn icon_plus() -> impl IntoView {
     view! {
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    }
-}
-
-fn icon_folder() -> impl IntoView {
-    view! {
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" 
+            stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
     }
 }
@@ -26,100 +17,150 @@ fn icon_trash() -> impl IntoView {
     view! {
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
     }
 }
 
 #[component]
 pub fn AdminCategoriesPage() -> impl IntoView {
-    let categories_resource: LocalResource<Vec<crate::api::types::Category>> =
-        LocalResource::new(move || async move {
-            catalog_api::list_categories().await.unwrap_or_default()
-        });
-
     let (name, set_name) = signal(String::new());
-    let (parent_id, set_parent_id) = signal(None::<Uuid>);
+    let (slug, set_slug) = signal(String::new());
+    let (description, set_description) = signal(String::new());
+    let (parent_id, set_parent_id) = signal(String::new());
 
-    let create_category_action = Action::new_local(move |req: &CreateCategoryRequest| {
+    let categories_resource = LocalResource::new(|| async move { list_categories().await });
+
+    let create_action = Action::new_local(|req: &CreateCategoryRequest| {
         let req = req.clone();
-        async move { catalog_api::create_category(req).await }
+        async move { create_category(req).await }
     });
 
-    let delete_category_action = Action::new_local(|id: &Uuid| {
+    let delete_action = Action::new_local(|id: &Uuid| {
         let id = *id;
-        async move { catalog_api::delete_category(id).await }
+        async move { delete_category(id).await }
     });
 
-    let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
+    let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
-        let req = CreateCategoryRequest {
-            name: name.get(),
-            slug: None,
-            parent_id: parent_id.get(),
+        let p_id = parent_id.get();
+        let parent = if p_id.is_empty() {
+            None
+        } else {
+            Uuid::parse_str(&p_id).ok()
         };
-        create_category_action.dispatch(req);
+
+        create_action.dispatch(CreateCategoryRequest {
+            name: name.get(),
+            slug: Some(slug.get()),
+            parent_id: parent,
+        });
     };
 
     Effect::new(move |_| {
-        if create_category_action.value().get().is_some() {
-            set_name.set(String::new());
+        if create_action.value().get().is_some() || delete_action.value().get().is_some() {
             categories_resource.refetch();
+            set_name.set(String::new());
+            set_slug.set(String::new());
+            set_description.set(String::new());
+            set_parent_id.set(String::new());
         }
     });
 
     view! {
-        <div class="p-6 space-y-6 animate-in fade-in duration-500">
+        <div class="p-6 space-y-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-2xl font-black text-gray-900">"Categories"</h1>
-                    <p class="text-sm text-gray-400 mt-1">"Organize your products into a hierarchical structure"</p>
+                    <h1 class="text-xl font-black text-gray-900">"Categories"</h1>
+                    <p class="text-xs text-gray-400 mt-0.5">"Organize your product catalog with multi-level categories"</p>
+                </div>
+                <div class="bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl">
+                    <span class="text-xs font-bold text-indigo-600">
+                        {move || match categories_resource.get() {
+                            Some(sw) => {
+                                let res = &*sw;
+                                match res {
+                                    Ok(list) => format!("{} Total Categories", list.len()),
+                                    _ => "... Categories".to_string()
+                                }
+                            },
+                            _ => "... Categories".to_string()
+                        }}
+                    </span>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 // Left: Create Form
                 <div class="lg:col-span-1">
-                    <div class="bg-white rounded-3xl p-6 border border-gray-100 shadow-xl">
-                        <h2 class="text-lg font-bold text-gray-800 mb-6">"New Category"</h2>
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 sticky top-6">
+                        <h2 class="text-sm font-bold text-gray-900 mb-6">"Create New Category"</h2>
+                        
                         <form on:submit=on_submit class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">"Category Name"</label>
-                                <input
-                                    type="text"
-                                    prop:value=name
-                                    on:input=move |ev| set_name.set(event_target_value(&ev))
-                                    placeholder="e.g. Menswear"
-                                    class="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FCE300] transition-all outline-none"
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Category Name"</label>
+                                <input 
+                                    type="text" 
                                     required
+                                    placeholder="e.g. Arabica Coffee"
+                                    class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
+                                    on:input=move |ev| set_name.set(event_target_value(&ev))
+                                    prop:value=name
                                 />
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">"Parent Category (Optional)"</label>
-                                <select
-                                    class="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#FCE300] transition-all outline-none"
-                                    on:change=move |ev| {
-                                        let val = event_target_value(&ev);
-                                        if val.is_empty() {
-                                            set_parent_id.set(None);
-                                        } else {
-                                            set_parent_id.set(Uuid::parse_str(&val).ok());
-                                        }
-                                    }
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Slug (URL path)"</label>
+                                <input 
+                                    type="text" 
+                                    required
+                                    placeholder="arabica-coffee"
+                                    class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm"
+                                    on:input=move |ev| set_slug.set(event_target_value(&ev))
+                                    prop:value=slug
+                                />
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Parent Category"</label>
+                                <select 
+                                    class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm appearance-none"
+                                    on:change=move |ev| set_parent_id.set(event_target_value(&ev))
+                                    prop:value=parent_id
                                 >
                                     <option value="">"No Parent"</option>
-                                    <Suspense fallback=|| view! { <option>"Loading..."</option> }>
-                                        {move || categories_resource.get().map(|list| {
-                                            list.iter().map(|cat| view! {
-                                                <option value=cat.id.to_string()>{cat.name.clone()}</option>
-                                            }).collect_view()
-                                        })}
+                                    <Suspense fallback=|| view! { <option>"Loading..."</option> }.into_any()>
+                                        {move || match categories_resource.get() {
+                                            Some(sw) => {
+                                                let res = &*sw;
+                                                match res {
+                                                    Ok(list) => list.iter().map(|cat| {
+                                                        let c_name = cat.name.clone();
+                                                        let c_id = cat.id.to_string();
+                                                        view! { <option value=c_id>{c_name}</option> }
+                                                    }).collect_view().into_any(),
+                                                    _ => view! { <option value="">"Error loading"</option> }.into_any()
+                                                }
+                                            },
+                                            None => view! { <option value="">"Loading..."</option> }.into_any()
+                                        }}
                                     </Suspense>
                                 </select>
                             </div>
 
-                            <button
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Description"</label>
+                                <textarea 
+                                    rows="3"
+                                    placeholder="Optional category summary..."
+                                    class="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-[#FCE300] outline-none transition-all text-sm resize-none"
+                                    on:input=move |ev| set_description.set(event_target_value(&ev))
+                                    prop:value=description
+                                ></textarea>
+                            </div>
+
+                            <button 
                                 type="submit"
                                 class="w-full bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold py-3 rounded-xl shadow-lg shadow-yellow-200/50 transition-all active:scale-[0.98] cursor-pointer"
                             >
@@ -130,52 +171,48 @@ pub fn AdminCategoriesPage() -> impl IntoView {
                 </div>
 
                 // Right: List
-                <div class="lg:col-span-2">
-                    <div class="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
-                        <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-                            <h2 class="text-lg font-bold text-gray-800">"All Categories"</h2>
-                            <span class="bg-indigo-50 text-indigo-600 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter">
-                                {move || categories_resource.get().map(|c| c.len()).unwrap_or(0)} " total"
-                            </span>
-                        </div>
-                        <div class="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
-                            <Suspense fallback=|| view! { <div class="p-10 text-center text-gray-400">"Loading categories..."</div> }>
-                                {move || categories_resource.get().map(|list| {
-                                    if list.is_empty() {
-                                        Either::Left(view! { <div class="p-10 text-center text-gray-400">"No categories found yet."</div> })
-                                    } else {
-                                        Either::Right(list.iter().map(|cat| {
-                                            let cat_id = cat.id;
-                                            view! {
-                                                <div class="p-4 hover:bg-gray-50/50 flex items-center justify-between group transition-colors">
-                                                    <div class="flex items-center gap-4">
-                                                        <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                                                            {icon_folder()}
+                <div class="lg:col-span-2 space-y-4">
+                    <Suspense fallback=move || view! { <p class="text-center py-12 text-gray-400">"Loading catalog..."</p> }>
+                        {move || match categories_resource.get() {
+                            Some(sw) => {
+                                let res = &*sw;
+                                match res {
+                                    Ok(list) => {
+                                        if list.is_empty() {
+                                            view! { <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl py-12 text-center text-gray-400 font-medium">"No categories found. Create one to get started."</div> }.into_any()
+                                        } else {
+                                            list.iter().map(|cat| {
+                                                let c_id = cat.id;
+                                                let c_name = cat.name.clone();
+                                                let c_slug = cat.slug.clone();
+                                                view! {
+                                                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-[#FCE300] transition-colors">
+                                                        <div class="flex items-center gap-4">
+                                                            <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 font-black text-xs">
+                                                                {c_name.chars().next().unwrap_or('?').to_string()}
+                                                            </div>
+                                                            <div>
+                                                                <p class="text-sm font-bold text-gray-900">{c_name}</p>
+                                                                <p class="text-[11px] text-gray-400">"slug: " {c_slug}</p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <p class="text-sm font-bold text-gray-900">{cat.name.clone()}</p>
-                                                            <p class="text-[10px] text-gray-400 font-mono mt-0.5">{cat.slug.clone()}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                                            on:click=move |_| {
-                                                                delete_category_action.dispatch(cat_id);
-                                                                categories_resource.refetch();
-                                                            }
+                                                        <button 
+                                                            on:click=move |_| { delete_action.dispatch(c_id); }
+                                                            class="p-2 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                         >
                                                             {icon_trash()}
                                                         </button>
                                                     </div>
-                                                </div>
-                                            }
-                                        }).collect_view())
-                                    }
-                                })}
-                            </Suspense>
-                        </div>
-                    </div>
+                                                }
+                                            }).collect_view().into_any()
+                                        }
+                                    },
+                                    _ => view! { <div class="text-rose-500">"Error loading categories"</div> }.into_any()
+                                }
+                            },
+                            None => view! { <p>"Loading..."</p> }.into_any()
+                        }}
+                    </Suspense>
                 </div>
             </div>
         </div>

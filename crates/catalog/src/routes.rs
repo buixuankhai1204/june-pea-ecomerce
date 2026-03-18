@@ -8,6 +8,7 @@ use crate::usecase::{
     list_categories::ListCategoriesUsecase, list_products::ListProductsUsecase,
     product_by_id::GetProductByIdUsecase, product_details::GetProductUsecase,
     update_product::UpdateProductUsecase, update_variant::UpdateVariantUsecase,
+    search_products::SearchProductsUsecase, get_category_tree::GetCategoryTreeUsecase,
 };
 use axum::extract::{Path, Query, State};
 use axum::routing::{delete, get, patch, post};
@@ -31,6 +32,8 @@ pub struct CatalogUsecase {
     create_variant_usecase: Arc<CreateVariantUsecase>,
     update_variant_usecase: Arc<UpdateVariantUsecase>,
     delete_variant_usecase: Arc<DeleteVariantUsecase>,
+    search_products_usecase: Arc<SearchProductsUsecase>,
+    get_category_tree_usecase: Arc<GetCategoryTreeUsecase>,
 }
 
 impl CatalogUsecase {
@@ -47,7 +50,9 @@ impl CatalogUsecase {
             delete_category_usecase: Arc::new(DeleteCategoryUsecase::new(repo.clone())),
             create_variant_usecase: Arc::new(CreateVariantUsecase::new(repo.clone())),
             update_variant_usecase: Arc::new(UpdateVariantUsecase::new(repo.clone())),
-            delete_variant_usecase: Arc::new(DeleteVariantUsecase::new(repo)),
+            delete_variant_usecase: Arc::new(DeleteVariantUsecase::new(repo.clone())),
+            search_products_usecase: Arc::new(SearchProductsUsecase::new(repo.clone())),
+            get_category_tree_usecase: Arc::new(GetCategoryTreeUsecase::new(repo)),
         }
     }
 
@@ -98,10 +103,25 @@ impl CatalogUsecase {
     pub fn delete_variant_usecase(&self) -> Arc<DeleteVariantUsecase> {
         self.delete_variant_usecase.clone()
     }
+
+    pub fn search_products_usecase(&self) -> Arc<SearchProductsUsecase> {
+        self.search_products_usecase.clone()
+    }
+
+    pub fn get_category_tree_usecase(&self) -> Arc<GetCategoryTreeUsecase> {
+        self.get_category_tree_usecase.clone()
+    }
 }
 
 #[derive(Debug, Deserialize)]
 struct ListProductsQuery {
+    page: Option<i64>,
+    page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchProductsQuery {
+    q: String,
     page: Option<i64>,
     page_size: Option<i64>,
 }
@@ -154,6 +174,7 @@ pub fn init() -> Router<CatalogUsecase> {
             "/products",
             get(list_products_handler).post(create_product_handler),
         )
+        .route("/products/search", get(search_products_handler))
         .route(
             "/products/{id}",
             get(get_product_by_id_handler)
@@ -165,6 +186,7 @@ pub fn init() -> Router<CatalogUsecase> {
             "/categories",
             get(list_categories_handler).post(create_category_handler),
         )
+        .route("/categories/tree", get(get_category_tree_handler))
         .route("/categories/{id}", delete(delete_category_handler))
         .route("/variants", post(create_variant_handler))
         .route(
@@ -208,6 +230,26 @@ async fn list_categories_handler(
     let usecase = state.list_categories_usecase();
     let result = usecase.execute().await?;
     Ok(Json(result))
+}
+
+async fn search_products_handler(
+    State(state): State<CatalogUsecase>,
+    Query(params): Query<SearchProductsQuery>,
+) -> Result<Json<Vec<crate::domain::model::ProductWithVariants>>, AppError> {
+    let usecase = state.search_products_usecase();
+    let page = params.page.unwrap_or(1);
+    let page_size = params.page_size.unwrap_or(20);
+    let offset = (page - 1) * page_size;
+    let products = usecase.execute(&params.q, page_size, offset).await?;
+    Ok(Json(products))
+}
+
+async fn get_category_tree_handler(
+    State(state): State<CatalogUsecase>,
+) -> Result<Json<Vec<crate::usecase::get_category_tree::CategoryNode>>, AppError> {
+    let usecase = state.get_category_tree_usecase();
+    let tree = usecase.execute().await?;
+    Ok(Json(tree))
 }
 
 async fn create_category_handler(

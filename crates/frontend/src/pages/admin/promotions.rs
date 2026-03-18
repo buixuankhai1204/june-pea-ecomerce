@@ -25,6 +25,10 @@ pub fn AdminPromotionsPage() -> impl IntoView {
     let (code, set_code) = signal(String::new());
     let (discount, set_discount) = signal(0i64);
     let (max_uses, set_max_uses) = signal(100i32);
+    let (cat_id_str, set_cat_id_str) = signal(String::new());
+    let (cat_discount, set_cat_discount) = signal(10i32);
+
+    let categories = LocalResource::new(|| async move { crate::api::client::catalog::get_category_tree().await });
 
     let coupons: LocalResource<Vec<crate::api::types::Coupon>> =
         LocalResource::new(move || async move {
@@ -39,6 +43,11 @@ pub fn AdminPromotionsPage() -> impl IntoView {
     let delete_coupon = Action::new_local(|code: &String| {
         let code = code.clone();
         async move { marketing_api::delete_coupon(&code).await }
+    });
+
+    let apply_cat_discount = Action::new_local(|req: &crate::api::types::ApplyCategoryDiscountRequest| {
+        let req = req.clone();
+        async move { marketing_api::apply_category_discount(req).await }
     });
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
@@ -79,87 +88,146 @@ pub fn AdminPromotionsPage() -> impl IntoView {
 
             // KPI cards
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Suspense fallback=|| view! { <div class="col-span-4 text-center py-4">"Computing stats..."</div> }>
-                    {move || coupons.get().map(|list| {
-                        let active = list.iter().filter(|c| c.is_active).count();
-                        let total_used: i32 = list.iter().map(|c| c.current_uses).sum();
-                        view! {
-                            <>
-                                <div class="rounded-2xl p-4 border shadow-sm bg-emerald-50 border-emerald-100">
-                                    <p class="text-xs text-gray-500 font-medium">"Active Promos"</p>
-                                    <p class="text-2xl font-black mt-1 text-emerald-600">{active}</p>
-                                </div>
-                                <div class="rounded-2xl p-4 border shadow-sm bg-indigo-50 border-indigo-100">
-                                    <p class="text-xs text-gray-500 font-medium">"Total Used"</p>
-                                    <p class="text-2xl font-black mt-1 text-indigo-600">{total_used}</p>
-                                </div>
-                                <div class="rounded-2xl p-4 border shadow-sm bg-gray-50 border-gray-200">
-                                    <p class="text-xs text-gray-500 font-medium">"Total Coupons"</p>
-                                    <p class="text-2xl font-black mt-1 text-gray-600">{list.len()}</p>
-                                </div>
-                            </>
-                        }
-                    })}
+                <Suspense fallback=|| view! { <div class="col-span-4 text-center py-4 text-gray-400">"Computing stats..."</div> }>
+                    {move || match coupons.get() {
+                        Some(sw) => {
+                            let list = &*sw;
+                            let active = list.iter().filter(|c| c.is_active).count();
+                            let total_used: i32 = list.iter().map(|c| c.current_uses).sum();
+                            view! {
+                                <>
+                                    <div class="rounded-2xl p-4 border shadow-sm bg-emerald-50 border-emerald-100">
+                                        <p class="text-xs text-gray-500 font-medium">"Active Promos"</p>
+                                        <p class="text-2xl font-black mt-1 text-emerald-600">{active}</p>
+                                    </div>
+                                    <div class="rounded-2xl p-4 border shadow-sm bg-indigo-50 border-indigo-100">
+                                        <p class="text-xs text-gray-500 font-medium">"Total Used"</p>
+                                        <p class="text-2xl font-black mt-1 text-indigo-600">{total_used}</p>
+                                    </div>
+                                    <div class="rounded-2xl p-4 border shadow-sm bg-gray-50 border-gray-200">
+                                        <p class="text-xs text-gray-500 font-medium">"Total Coupons"</p>
+                                        <p class="text-2xl font-black mt-1 text-gray-600">{list.len()}</p>
+                                    </div>
+                                </>
+                            }.into_any()
+                        },
+                        None => view! { <div class="col-span-4"></div> }.into_any()
+                    }}
                 </Suspense>
             </div>
 
             // Promo cards grid
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Suspense fallback=|| view! { <div class="col-span-3 text-center py-10">"Loading tokens..."</div> }>
-                    {move || coupons.get().map(|list| {
-                        list.iter().map(|p| {
-                            let fill_pct = if p.max_uses > 0 { p.current_uses as f64 / p.max_uses as f64 * 100.0 } else { 0.0 };
-                            let (badge_bg, bar_color, status_text) = if p.is_active {
-                                ("bg-emerald-50 text-emerald-600 border-emerald-100", "#10B981", "Active")
-                            } else {
-                                ("bg-gray-100 text-gray-400 border-gray-200", "#94A3B8", "Inactive")
-                            };
-                            let p_code = p.code.clone();
-                            view! {
-                                <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer relative group">
-                                    <div class="flex items-start justify-between mb-3">
-                                        <div>
-                                            <p class="font-black text-gray-900 text-base font-mono">{p.code.clone()}</p>
-                                            <p class="text-xs text-gray-400 mt-0.5">"Discount Code"</p>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <span class=format!("text-[10px] font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 {}", badge_bg)>
-                                                {status_text}
-                                            </span>
-                                            <button
-                                                on:click=move |e| { e.stop_propagation(); delete_coupon.dispatch(p_code.clone()); }
-                                                class="p-1.5 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                            >
-                                                {icon_trash()}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    // Discount highlight
-                                    <div class="bg-gray-50 rounded-xl p-3 text-center mb-3">
-                                        <span class="text-2xl font-black text-[#FCE300]" style="text-shadow: 0 0 1px #0003;">"₫" {p.discount_amount}</span>
-                                        <span class="text-xs text-gray-500 block">"Discount"</span>
-                                    </div>
-
-                                    // Usage bar
-                                    <div class="space-y-1.5">
-                                        <div class="flex items-center justify-between text-[11px] text-gray-500">
-                                            <span>"Usage: " {p.current_uses} "/" {p.max_uses}</span>
-                                            <span class="font-semibold text-gray-900">{format!("{:.0}%", fill_pct)}</span>
-                                        </div>
-                                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                            <div class="h-full rounded-full transition-all duration-500"
-                                                style={format!("width:{}%; background:{}", fill_pct, bar_color)}>
+                <Suspense fallback=|| view! { <div class="col-span-3 text-center py-10 text-gray-400">"Loading tokens..."</div> }>
+                    {move || match coupons.get() {
+                        Some(sw) => {
+                            let list = &*sw;
+                            list.iter().map(|p| {
+                                let fill_pct = if p.max_uses > 0 { p.current_uses as f64 / p.max_uses as f64 * 100.0 } else { 0.0 };
+                                let (badge_bg, bar_color, status_text) = if p.is_active {
+                                    ("bg-emerald-50 text-emerald-600 border-emerald-100", "#10B981", "Active")
+                                } else {
+                                    ("bg-gray-100 text-gray-400 border-gray-200", "#94A3B8", "Inactive")
+                                };
+                                let p_code = p.code.clone();
+                                view! {
+                                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer relative group">
+                                        <div class="flex items-start justify-between mb-3">
+                                            <div>
+                                                <p class="font-black text-gray-900 text-base font-mono">{p.code.clone()}</p>
+                                                <p class="text-xs text-gray-400 mt-0.5">"Discount Code"</p>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class=format!("text-[10px] font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 {}", badge_bg)>
+                                                    {status_text}
+                                                </span>
+                                                <button
+                                                    on:click=move |e| { e.stop_propagation(); delete_coupon.dispatch(p_code.clone()); }
+                                                    class="p-1.5 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    {icon_trash()}
+                                                </button>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <p class="text-[11px] text-gray-400 mt-3">"Created: " <span class="text-gray-700 font-semibold">{p.created_at.format("%d/%m/%Y").to_string()}</span></p>
-                                </div>
-                            }
-                        }).collect_view()
-                    })}
+                                        // Discount highlight
+                                        <div class="bg-gray-50 rounded-xl p-3 text-center mb-3">
+                                            <span class="text-2xl font-black text-[#FCE300]" style="text-shadow: 0 0 1px #0003;">"₫" {p.discount_amount}</span>
+                                            <span class="text-xs text-gray-500 block">"Discount"</span>
+                                        </div>
+
+                                        // Usage bar
+                                        <div class="space-y-1.5">
+                                            <div class="flex items-center justify-between text-[11px] text-gray-500">
+                                                <span>"Usage: " {p.current_uses} "/" {p.max_uses}</span>
+                                                <span class="font-semibold text-gray-900">{format!("{:.0}%", fill_pct)}</span>
+                                            </div>
+                                            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all duration-500"
+                                                    style={format!("width:{}%; background:{}", fill_pct, bar_color)}>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p class="text-[11px] text-gray-400 mt-3">"Created: " <span class="text-gray-700 font-semibold">{p.created_at.format("%d/%m/%Y").to_string()}</span></p>
+                                    </div>
+                                }.into_any()
+                            }).collect_view().into_any()
+                        },
+                        None => view! { <div class="col-span-3"></div> }.into_any()
+                    }}
                 </Suspense>
+            </div>
+
+            // Category Discount Section
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-8">
+                <h2 class="text-sm font-bold text-gray-900 mb-4">"Bulk Category Discount"</h2>
+                <div class="flex items-end gap-4 flex-wrap">
+                    <div class="space-y-1 min-w-[200px]">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Category"</label>
+                        <select
+                            class="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 outline-none text-sm"
+                            on:change=move |ev| set_cat_id_str.set(event_target_value(&ev))
+                        >
+                            <option value="">"Select Category..."</option>
+                            <Suspense fallback=|| view! { <option>"Loading..."</option> }>
+                                {move || categories.get().map(|res| match res.as_ref() {
+                                    Ok(cats) => cats.iter().map(|c| {
+                                        let id = c.category.id.to_string();
+                                        let name = c.category.name.clone();
+                                        view! {
+                                            <option value=id>{name}</option>
+                                        }
+                                    }).collect_view().into_any(),
+                                    _ => ().into_any()
+                                })}
+                            </Suspense>
+                        </select>
+                    </div>
+                    <div class="space-y-1 w-32">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Discount (%)"</label>
+                        <input
+                            type="number"
+                            class="w-full px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 outline-none text-sm"
+                            on:input=move |ev| set_cat_discount.set(event_target_value(&ev).parse().unwrap_or(10))
+                            prop:value=cat_discount
+                        />
+                    </div>
+                    <button
+                        on:click=move |_| {
+                            if let Ok(id) = uuid::Uuid::parse_str(&cat_id_str.get()) {
+                                apply_cat_discount.dispatch(crate::api::types::ApplyCategoryDiscountRequest {
+                                    category_id: id,
+                                    percent: cat_discount.get(),
+                                });
+                                if let Some(w) = web_sys::window() { let _ = w.alert_with_message("Bulk discount applied!"); }
+                            }
+                        }
+                        class="bg-gray-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl hover:bg-black transition-colors shadow-sm"
+                    >
+                        "Apply to All Products"
+                    </button>
+                </div>
             </div>
 
             // Create Modal

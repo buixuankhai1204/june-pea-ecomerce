@@ -17,3 +17,4 @@ sqlx = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
+async-recursion = "1.1"

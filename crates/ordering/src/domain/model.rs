@@ -21,6 +21,7 @@ pub struct Order {
     pub customer_id: Option<Uuid>,
     pub status: OrderStatus,
     pub total: i64, // in cents
+    pub note: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -63,6 +64,7 @@ impl Order {
             customer_id,
             status: OrderStatus::Pending,
             total,
+            note: None,
             created_at: Utc::now(),
         };
 

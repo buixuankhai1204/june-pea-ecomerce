@@ -3,3 +3,7 @@ pub mod get_stock;
 pub mod increase_stock;
 pub mod list_all_stocks;
 pub mod update_stock;
+pub mod list_suppliers;
+pub mod create_supplier;
+pub mod delete_supplier;
+pub mod check_low_stock_alerts;

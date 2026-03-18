@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -9,6 +10,8 @@ pub struct Product {
     pub slug: String,
     pub description: Option<String>,
     pub category_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
@@ -20,6 +23,8 @@ pub struct ProductVariant {
     pub base_price: Decimal,
     pub sale_price: Option<Decimal>,
     pub attributes: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// A composite DTO for the Storefront
@@ -32,7 +37,7 @@ pub struct ProductWithVariants {
 /// Paginated response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginatedProducts {
-    pub items: Vec<Product>,
+    pub items: Vec<ProductWithVariants>,
     pub total: i64,
     pub page: i64,
     pub page_size: i64,
@@ -44,4 +49,6 @@ pub struct Category {
     pub name: String,
     pub slug: String,
     pub parent_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

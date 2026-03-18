@@ -29,4 +29,18 @@ pub trait OrderRepository: Send + Sync {
     ) -> Result<Vec<Order>, AppError>;
 
     async fn list_all_orders(&self, exec: &mut dyn DbExecutor) -> Result<Vec<Order>, AppError>;
+
+    async fn update_order_note(
+        &self,
+        exec: &mut dyn DbExecutor,
+        id: Uuid,
+        note: String,
+    ) -> Result<(), AppError>;
+
+    async fn list_customer_recent_orders(
+        &self,
+        exec: &mut dyn DbExecutor,
+        customer_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<Order>, AppError>;
 }

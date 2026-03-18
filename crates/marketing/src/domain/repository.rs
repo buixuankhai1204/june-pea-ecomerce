@@ -25,4 +25,11 @@ pub trait CouponRepository: Send + Sync {
         exec: &mut dyn DbExecutor,
         id: uuid::Uuid,
     ) -> Result<(), AppError>;
+
+    async fn apply_category_discount(
+        &self,
+        exec: &mut dyn DbExecutor,
+        category_id: uuid::Uuid,
+        percent: i32,
+    ) -> Result<(), AppError>;
 }

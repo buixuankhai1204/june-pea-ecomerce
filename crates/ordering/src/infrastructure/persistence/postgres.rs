@@ -32,14 +32,15 @@ impl OrderRepository for PostgresOrderRepository {
 
         sqlx::query(
             r#"
-            INSERT INTO ordering.orders (id, customer_id, status, total, created_at)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO ordering.orders (id, customer_id, status, total, note, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
             "#,
         )
         .bind(order.id)
         .bind(order.customer_id)
         .bind(status)
         .bind(order.total)
+        .bind(order.note.as_ref())
         .bind(order.created_at)
         .execute(&mut *executor.tx)
         .await
@@ -74,7 +75,7 @@ impl OrderRepository for PostgresOrderRepository {
 
         let row = sqlx::query_as::<_, OrderRow>(
             r#"
-            SELECT id, customer_id, status, total, created_at
+            SELECT id, customer_id, status, total, note, created_at
             FROM ordering.orders
             WHERE id = $1
             "#,
@@ -121,7 +122,7 @@ impl OrderRepository for PostgresOrderRepository {
 
         let rows = sqlx::query_as::<_, OrderRow>(
             r#"
-            SELECT id, customer_id, status, total, created_at
+            SELECT id, customer_id, status, total, note, created_at
             FROM ordering.orders
             WHERE customer_id = $1
             ORDER BY created_at DESC
@@ -140,7 +141,7 @@ impl OrderRepository for PostgresOrderRepository {
 
         let rows = sqlx::query_as::<_, OrderRow>(
             r#"
-            SELECT id, customer_id, status, total, created_at
+            SELECT id, customer_id, status, total, note, created_at
             FROM ordering.orders
             ORDER BY created_at DESC
             "#,
@@ -149,6 +150,40 @@ impl OrderRepository for PostgresOrderRepository {
         .await
         .map_err(|_| AppError::InternalServerError)?;
 
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn update_order_note(
+        &self,
+        exec: &mut dyn DbExecutor,
+        id: Uuid,
+        note: String,
+    ) -> Result<(), AppError> {
+        let executor = SqlxExecutor::from_executor(exec);
+        sqlx::query("UPDATE ordering.orders SET note = $1 WHERE id = $2")
+            .bind(note)
+            .bind(id)
+            .execute(&mut *executor.tx)
+            .await
+            .map_err(|_| AppError::InternalServerError)?;
+        Ok(())
+    }
+
+    async fn list_customer_recent_orders(
+        &self,
+        exec: &mut dyn DbExecutor,
+        customer_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<Order>, AppError> {
+        let executor = SqlxExecutor::from_executor(exec);
+        let rows = sqlx::query_as::<_, OrderRow>(
+            "SELECT id, customer_id, status, total, note, created_at FROM ordering.orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT $2"
+        )
+        .bind(customer_id)
+        .bind(limit)
+        .fetch_all(&mut *executor.tx)
+        .await
+        .map_err(|_| AppError::InternalServerError)?;
         Ok(rows.into_iter().map(Into::into).collect())
     }
 }

@@ -2,6 +2,7 @@ use leptos::prelude::*;
 
 use crate::api::client;
 use crate::api::types::PaginatedProducts;
+use leptos_router::hooks::use_query_map;
 
 // ─── Icons ─────────────────────────────────────────────────────────────────
 
@@ -292,35 +293,34 @@ pub fn ProductsPage() -> impl IntoView {
     // Only one dropdown open at a time
     let active_dropdown = RwSignal::new(Option::<String>::None);
 
-    let subcats = vec![
-        SubCat {
-            label: "ÁO THUN CỔ TRÒN",
-            desc: "Dẫn đầu công nghệ, tôn dáng người Việt",
-        },
-        SubCat {
-            label: "ÁO POLO",
-            desc: "Bền phom, mềm vải, mặc bền quanh năm",
-        },
-        SubCat {
-            label: "ÁO SƠ MI",
-            desc: "Công nghệ non-iron, ít nhăn dễ ủi",
-        },
-        SubCat {
-            label: "ÁO KHOÁC",
-            desc: "Đa năng, bền bỉ cho mọi hành trình",
-        },
-    ];
+
+    let query_map = use_query_map();
+    let search_query = move || query_map.get().get("q").map(|s| s.to_string());
 
     let products = LocalResource::new(move || {
         let p = page.get();
+        let q = search_query();
         async move {
-            client::get::<PaginatedProducts>(&format!(
-                "/api/v1/catalog/products?page={}&page_size={}",
-                p, page_size
-            ))
-            .await
+            if let Some(q_val) = q {
+                match client::catalog::search_products(&q_val).await {
+                    Ok(items) => {
+                        let count = items.len() as i64;
+                        Ok(PaginatedProducts {
+                            total: count,
+                            items,
+                            page: 1,
+                            page_size: count,
+                        })
+                    }
+                    Err(e) => Err(e),
+                }
+            } else {
+                client::catalog::list_products(p, page_size).await
+            }
         }
     });
+
+    let categories = LocalResource::new(|| async move { client::catalog::get_category_tree().await });
 
     // Number of active filters (for "clear all" button)
     let active_count = move || {
@@ -349,20 +349,32 @@ pub fn ProductsPage() -> impl IntoView {
                 // ── Page title ────────────────────────────────────────────
                 <h1 class="text-3xl font-light text-black tracking-wide mb-6">"ÁO"</h1>
 
-                // ── Sub-category banners (4-col) ─────────────────────────
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-                    {subcats.into_iter().map(|cat| view! {
-                        <a href="/products" class="relative block aspect-[3/4] bg-gray-100 overflow-hidden group cursor-pointer">
-                            <div class="absolute inset-0 bg-gradient-to-b from-gray-100 to-gray-200 group-hover:scale-105 transition-transform duration-500 ease-out"></div>
-                            <div class="absolute bottom-0 left-0 right-0 p-4 space-y-1">
-                                <span class="inline-block bg-[#2D3748] text-white text-[11px] font-semibold px-2.5 py-1 rounded-full tracking-wider">
-                                    {cat.label}
-                                </span>
-                                <p class="text-xs text-gray-700 font-medium leading-tight">{cat.desc}</p>
-                            </div>
-                        </a>
-                    }).collect_view()}
-                </div>
+                // ── Sub-category banners (Dynamic from API) ─────────────────────────
+                <Suspense fallback=|| view! { <div class="h-32 bg-gray-50 animate-pulse rounded-2xl mb-8"></div> }>
+                    {move || categories.get().map(|res| match res.as_ref() {
+                        Ok(cats) => {
+                            view! {
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                                    {cats.iter().take(4).map(|cat| {
+                                        let name = cat.category.name.clone();
+                                        view! {
+                                            <a href="/products" class="relative block aspect-[3/4] bg-gray-100 overflow-hidden group cursor-pointer">
+                                                <div class="absolute inset-0 bg-gradient-to-b from-gray-100 to-gray-200 group-hover:scale-105 transition-transform duration-500 ease-out"></div>
+                                                <div class="absolute bottom-0 left-0 right-0 p-4 space-y-1">
+                                                    <span class="inline-block bg-[#2D3748] text-white text-[11px] font-semibold px-2.5 py-1 rounded-full tracking-wider">
+                                                        {name}
+                                                    </span>
+                                                    <p class="text-xs text-gray-700 font-medium leading-tight">"Explore collection"</p>
+                                                </div>
+                                            </a>
+                                        }
+                                    }).collect_view()}
+                                </div>
+                            }.into_any()
+                        },
+                        Err(_) => ().into_any()
+                    })}
+                </Suspense>
 
                 // ── Filter bar ────────────────────────────────────────────
                 <div class="flex items-center justify-between border-t border-b border-gray-200 py-2.5 mb-2 gap-4 flex-wrap">
@@ -511,7 +523,7 @@ pub fn ProductsPage() -> impl IntoView {
 
                                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8">
                                         {data.items.into_iter().map(|product| {
-                                            let slug = product.slug.clone();
+                                            let slug = product.product.slug.clone();
                                             view! {
                                                 <a href=format!("/products/{}", slug) class="group block cursor-pointer">
                                                     <div class="relative bg-gray-100 aspect-[3/4] overflow-hidden mb-3">
@@ -536,7 +548,7 @@ pub fn ProductsPage() -> impl IntoView {
                                                     </div>
                                                     <div class="space-y-1">
                                                         <h3 class="text-sm text-gray-900 leading-snug line-clamp-2 group-hover:text-gray-600 transition-colors">
-                                                            {product.name.clone()}
+                                                            {product.product.name.clone()}
                                                         </h3>
                                                         <div class="flex items-center gap-2 flex-wrap">
                                                             <span class="text-gray-400 line-through text-xs">"297.000 VND"</span>
