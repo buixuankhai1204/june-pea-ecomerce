@@ -5,6 +5,7 @@ use hmac::{Hmac, Mac};
 use ordering::infrastructure::persistence::postgres::PostgresOrderRepository;
 use ordering::usecase::get_order::GetOrderUsecase;
 use ordering::usecase::update_order_status::UpdateOrderStatusUsecase;
+use payment::infrastructure::ordering::OrderingAdapter;
 use payment::config::PaymentConfig;
 use payment::domain::{PaymentRepository, PaymentStatus};
 use payment::infrastructure::persistence::postgres::PostgresPaymentRepository;
@@ -27,12 +28,13 @@ async fn create_vnpay_qr_persists_payment(pool: PgPool) {
         Arc::new(PostgresOrderRepository::new(pool.clone()));
     let payment_repo: Arc<dyn PaymentRepository> = Arc::new(PostgresPaymentRepository::new());
     let get_order = Arc::new(GetOrderUsecase::new(order_repo.clone(), uow.clone()));
+    let update_order_status = Arc::new(UpdateOrderStatusUsecase::new(order_repo.clone(), uow.clone()));
     let config = test_config();
     let vn_pay_client = Arc::new(VnPayClient::new(config.clone()));
     let create_usecase = CreateVnPayQrUsecase::new(
         payment_repo.clone(),
         uow.clone(),
-        get_order,
+        Arc::new(OrderingAdapter::new(get_order.clone(), update_order_status.clone())),
         vn_pay_client,
         config.clone(),
     );
@@ -75,7 +77,7 @@ async fn handle_vnpay_ipn_marks_order_paid(pool: PgPool) {
     let create_usecase = CreateVnPayQrUsecase::new(
         payment_repo.clone(),
         uow.clone(),
-        get_order,
+        Arc::new(OrderingAdapter::new(get_order.clone(), update_order_status.clone())),
         vn_pay_client.clone(),
         config.clone(),
     );
@@ -83,7 +85,7 @@ async fn handle_vnpay_ipn_marks_order_paid(pool: PgPool) {
         payment_repo,
         uow.clone(),
         vn_pay_client,
-        update_order_status,
+        Arc::new(OrderingAdapter::new(get_order, update_order_status)),
     );
 
     let intent = create_usecase

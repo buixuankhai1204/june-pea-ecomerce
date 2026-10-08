@@ -1,9 +1,7 @@
 use crate::config::PaymentConfig;
-use crate::domain::{PaymentIntent, PaymentProvider, PaymentRepository, PaymentStatus};
+use crate::domain::{OrderLookup, OrderState, PaymentIntent, PaymentProvider, PaymentRepository, PaymentStatus};
 use crate::infrastructure::vnpay::{VnPayClient, VnPayPaymentRequest};
 use crate::usecase::dto::PaymentIntentView;
-use ordering::domain::model::OrderStatus;
-use ordering::usecase::get_order::GetOrderUsecase;
 use qrcode::render::svg;
 use qrcode::QrCode;
 use shared::{database::UnitOfWork, error::AppError};
@@ -14,7 +12,7 @@ use uuid::Uuid;
 pub struct CreateVnPayQrUsecase {
     repo: Arc<dyn PaymentRepository>,
     uow: Arc<dyn UnitOfWork>,
-    get_order: Arc<GetOrderUsecase>,
+    orders: Arc<dyn OrderLookup>,
     vn_pay_client: Arc<VnPayClient>,
     config: PaymentConfig,
 }
@@ -23,14 +21,14 @@ impl CreateVnPayQrUsecase {
     pub fn new(
         repo: Arc<dyn PaymentRepository>,
         uow: Arc<dyn UnitOfWork>,
-        get_order: Arc<GetOrderUsecase>,
+        orders: Arc<dyn OrderLookup>,
         vn_pay_client: Arc<VnPayClient>,
         config: PaymentConfig,
     ) -> Self {
         Self {
             repo,
             uow,
-            get_order,
+            orders,
             vn_pay_client,
             config,
         }
@@ -41,8 +39,8 @@ impl CreateVnPayQrUsecase {
         order_id: Uuid,
         client_ip: Option<String>,
     ) -> Result<PaymentIntentView, AppError> {
-        let order = self.get_order.execute(order_id).await?;
-        if order.status != OrderStatus::Pending {
+        let order = self.orders.find(order_id).await?;
+        if order.state != OrderState::Pending {
             return Err(AppError::Conflict("Order is not pending".into()));
         }
 

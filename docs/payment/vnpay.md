@@ -13,6 +13,9 @@ Add the following keys to your environment (see `.env` and deployment secrets):
 | `VNPAY_PAYMENT_URL` | Payment gateway base URL | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` |
 | `VNPAY_RETURN_URL` | Frontend callback URL shown to customers after payment | `https://localhost:8080/payment/vnpay/return` |
 | `VNPAY_IPN_URL` | Public backend endpoint that VNPay calls with payment results | `https://localhost:3000/api/v1/payment/vnpay/ipn` |
+| `VNPAY_API_URL` | Merchant API used for refunds (optional, defaults to the sandbox) | `https://sandbox.vnpayment.vn/merchant_webapi/api/transaction` |
+| `VNPAY_SERVER_IP` | Our IP as sent in `vnp_IpAddr` on API calls (optional) | `127.0.0.1` |
+| `VNPAY_API_TIMEOUT_SECS` | Timeout for API calls (optional) | `10` |
 | `VNPAY_DEFAULT_LOCALE` | `vn` or `en` | `vn` |
 | `VNPAY_ORDER_TYPE` | Custom category code (defaults to `other`) | `fashion` |
 
@@ -29,6 +32,18 @@ Add the following keys to your environment (see `.env` and deployment secrets):
 3. **Customer scan** – Customer scans the QR code (or opens the VNPay URL) and authorizes the payment inside the VNPay app.
 4. **VNPay IPN** – VNPay calls our IPN endpoint (`/api/v1/payment/vnpay/ipn`) with query parameters describing the transaction. We verify the HMAC signature, match the `vnp_TxnRef`, check amount consistency, and update both the payment record and the original order status.
 5. **Frontend polling** – The frontend polls `GET /api/v1/payment/orders/{order_id}` every few seconds to know when the status changes to `paid`, and then shows a success message / clears the cart.
+
+## Refunds
+
+`POST /api/v1/payment/orders/{order_id}/refund` (admin only) asks VNPay for a full refund
+(`vnp_Command=refund`, `vnp_TransactionType=02`) and only then marks the payment `refunded`. If
+VNPay refuses the answer is `409`, if it is unreachable or answers something we can't verify it
+is `502`, and in both cases the payment stays `paid`. VNPay finds the payment by `vnp_TxnRef` and
+`vnp_TransactionDate`, which is the `vnp_CreateDate` we put in the payment URL.
+
+Open points: VNPay documents its dates as GMT+7 while the payment URL has always been sent in
+UTC (refunds quote the same value back), and if VNPay accepts a refund but saving it fails the
+refund exists only in the log. Neither has been checked against the live sandbox.
 
 ## Signature Rules
 

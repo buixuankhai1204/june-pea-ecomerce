@@ -22,6 +22,10 @@ This project follows a modular, domain-driven design:
 - `crates/shared`: Common utilities, structs, and error handling for all crates.
 - `migrations`: SQLx database migrations for the PostgreSQL database.
 
+## Testing
+
+See [docs/testing.md](docs/testing.md) for the test layers and how to run them.
+
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (latest stable)

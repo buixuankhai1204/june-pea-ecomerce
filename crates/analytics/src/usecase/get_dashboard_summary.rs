@@ -14,7 +14,7 @@ impl GetDashboardSummaryUsecase {
 
     pub async fn execute(&self) -> Result<DashboardSummary, AppError> {
         // Mocked aggregation across various domains
-        let total_revenue: i64 = sqlx::query_scalar("SELECT SUM(total) FROM ordering.orders WHERE status = 'completed'")
+        let total_revenue: i64 = sqlx::query_scalar("SELECT COALESCE(SUM(total), 0)::BIGINT FROM ordering.orders WHERE status = 'completed'")
             .fetch_one(&*self.pool)
             .await.unwrap_or(0);
 

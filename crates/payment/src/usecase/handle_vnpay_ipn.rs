@@ -1,7 +1,5 @@
-use crate::domain::{PaymentRepository, PaymentStatus};
+use crate::domain::{OrderLookup, PaymentRepository, PaymentStatus};
 use crate::infrastructure::vnpay::VnPayClient;
-use ordering::domain::model::OrderStatus as OrderDomainStatus;
-use ordering::usecase::update_order_status::UpdateOrderStatusUsecase;
 use serde::Serialize;
 use shared::{database::UnitOfWork, error::AppError};
 use std::collections::BTreeMap;
@@ -18,7 +16,7 @@ pub struct HandleVnPayIpnUsecase {
     repo: Arc<dyn PaymentRepository>,
     uow: Arc<dyn UnitOfWork>,
     vn_pay_client: Arc<VnPayClient>,
-    update_order_status: Arc<UpdateOrderStatusUsecase>,
+    orders: Arc<dyn OrderLookup>,
 }
 
 impl HandleVnPayIpnUsecase {
@@ -26,13 +24,13 @@ impl HandleVnPayIpnUsecase {
         repo: Arc<dyn PaymentRepository>,
         uow: Arc<dyn UnitOfWork>,
         vn_pay_client: Arc<VnPayClient>,
-        update_order_status: Arc<UpdateOrderStatusUsecase>,
+        orders: Arc<dyn OrderLookup>,
     ) -> Self {
         Self {
             repo,
             uow,
             vn_pay_client,
-            update_order_status,
+            orders,
         }
     }
 
@@ -82,9 +80,7 @@ impl HandleVnPayIpnUsecase {
                 )
                 .await?;
 
-                self.update_order_status
-                    .execute(payment.order_id, OrderDomainStatus::Completed)
-                    .await?;
+                self.orders.mark_completed(payment.order_id).await?;
             }
             return Ok(IpnResponseBody::success());
         }
