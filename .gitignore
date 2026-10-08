@@ -23,3 +23,5 @@ target
 /crates/frontend/node_modules
 
 /crates/frontend/dist
+/crates/Cargo.lock
+/crates/uploads
