@@ -11,7 +11,15 @@ pub struct PaymentConfig {
     pub default_locale: String,
     pub order_type: String,
     pub qr_expiry_minutes: i64,
+    /// VNPay's server-to-server API (refund), not the customer-facing `payment_url`.
+    pub api_url: String,
+    /// Our public IP as VNPay should see it, sent as `vnp_IpAddr` on API calls.
+    pub server_ip: String,
+    pub api_timeout_secs: u64,
 }
+
+pub const DEFAULT_VNPAY_API_URL: &str =
+    "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
 impl PaymentConfig {
     pub fn from_env() -> anyhow::Result<Self> {
@@ -27,6 +35,12 @@ impl PaymentConfig {
                 .ok()
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(15),
+            api_url: env::var("VNPAY_API_URL").unwrap_or_else(|_| DEFAULT_VNPAY_API_URL.into()),
+            server_ip: env::var("VNPAY_SERVER_IP").unwrap_or_else(|_| "127.0.0.1".into()),
+            api_timeout_secs: env::var("VNPAY_API_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(10),
         })
     }
 }

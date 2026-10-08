@@ -24,3 +24,8 @@ urlencoding = { workspace = true }
 hex = "0.4"
 qrcode = "0.14"
 anyhow = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+mockall = "0.15.0"
+test-support = { path = "../test-support" }

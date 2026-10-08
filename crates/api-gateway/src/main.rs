@@ -10,7 +10,7 @@ use identify::usecase::auth::AuthUsecase;
 use inventory::routes::InventoryUsecase;
 use payment::config::PaymentConfig;
 use payment::infrastructure::persistence::postgres::PostgresPaymentRepository;
-use payment::infrastructure::vnpay::VnPayClient;
+use payment::infrastructure::vnpay::{VnPayClient, VnPayGateway};
 use payment::routes::PaymentUsecase as PaymentRouter;
 use payment::usecase::{
     create_vnpay_qr::CreateVnPayQrUsecase, get_payment_status::GetPaymentStatusUsecase,
@@ -238,8 +238,11 @@ async fn main() -> anyhow::Result<()> {
         vn_pay_client.clone(),
         update_order_status.clone(),
     ));
+    let vnpay_gateway = Arc::new(VnPayGateway::new(&payment_config)?);
     let refund_payment = Arc::new(payment::usecase::refund_payment::RefundPaymentUsecase::new(
         payment_repo.clone(),
+        postgrese_unit_of_work.clone(),
+        vnpay_gateway,
     ));
     let payment_usecases = Arc::new(PaymentRouter::new(
         create_vnpay_qr,
@@ -318,6 +321,7 @@ async fn main() -> anyhow::Result<()> {
                 .fallback(tower_http::services::ServeFile::new("dist/index.html")),
         )
         .layer(cors_layer)
+        .nest_service("/uploads", tower_http::services::ServeDir::new("uploads"))
         .with_state(state);
 
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());

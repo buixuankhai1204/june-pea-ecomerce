@@ -1,0 +1,18 @@
+[package]
+name = "test-support"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Helpers shared by the test suites of several crates. Nothing in here depends on the code
+# under test: the VNPay stub signs and checks messages itself, from VNPay's documented field
+# order, so a mistake in our own signing can't hide behind a matching mistake in the test.
+[dependencies]
+wiremock = "0.6.5"
+serde_json = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = "0.4"
+urlencoding = { workspace = true }
+tokio = { workspace = true }
+testcontainers-modules = { version = "0.15.0", features = ["postgres", "redis"] }

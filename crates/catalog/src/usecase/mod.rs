@@ -12,3 +12,4 @@ pub mod update_product;
 pub mod update_variant;
 pub mod search_products;
 pub mod get_category_tree;
+pub mod upload_image;

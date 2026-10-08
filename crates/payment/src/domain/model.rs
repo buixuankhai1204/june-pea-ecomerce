@@ -83,7 +83,31 @@ impl PaymentIntent {
         expiry_minutes: i64,
         customer_ip: Option<String>,
     ) -> Self {
-        let now = Utc::now();
+        Self::new_at(
+            Utc::now(),
+            order_id,
+            amount,
+            payment_url,
+            txn_ref,
+            provider,
+            expiry_minutes,
+            customer_ip,
+        )
+    }
+
+    /// Same as `new`, with the creation time given. The payment URL carries this time as
+    /// `vnp_CreateDate`, and a refund has to quote it back, so both must be the same instant.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_at(
+        now: DateTime<Utc>,
+        order_id: Uuid,
+        amount: i64,
+        payment_url: String,
+        txn_ref: String,
+        provider: PaymentProvider,
+        expiry_minutes: i64,
+        customer_ip: Option<String>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             order_id,

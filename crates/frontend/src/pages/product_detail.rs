@@ -156,14 +156,47 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                     } else {
                                                         view! { <div></div> }.into_any()
                                                     }}
-                                                    // Placeholder image
-                                                    <div class="w-full h-full flex items-center justify-center">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-gray-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.75">
-                                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                                            <polyline points="21 15 16 10 5 21"></polyline>
-                                                        </svg>
-                                                    </div>
+
+                                                    // Main image logic
+                                                    {
+                                                        let images = data.images.clone();
+                                                        let variant_image_url = move || {
+                                                            matching_variant.get().and_then(|v| {
+                                                                v.attributes.get("image")
+                                                                    .or_else(|| v.attributes.get("imageUrl"))
+                                                                    .or_else(|| v.attributes.get("image_url"))
+                                                                    .and_then(|val| val.as_str())
+                                                                    .map(|s| s.to_string())
+                                                            })
+                                                        };
+
+                                                        move || {
+                                                            if let Some(url) = variant_image_url() {
+                                                                let full_url = if url.starts_with("http") { url } else { format!("{}{}", client::catalog::base_url(), url) };
+                                                                view! {
+                                                                    <img src=full_url alt="Product Variant" class="w-full h-full object-cover" />
+                                                                }.into_any()
+                                                            } else if images.is_empty() {
+                                                                view! {
+                                                                    <div class="w-full h-full flex items-center justify-center">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-gray-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.75">
+                                                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                                            <polyline points="21 15 16 10 5 21"></polyline>
+                                                                        </svg>
+                                                                    </div>
+                                                                }.into_any()
+                                                            } else {
+                                                                let idx = active_thumb.get();
+                                                                let img = images.get(idx).or_else(|| images.iter().find(|i| i.is_primary)).unwrap_or(&images[0]);
+                                                                let url = img.url.clone();
+                                                                let full_url = if url.starts_with("http") { url } else { format!("{}{}", client::catalog::base_url(), url) };
+                                                                view! {
+                                                                    <img src=full_url alt="Product" class="w-full h-full object-cover" />
+                                                                }.into_any()
+                                                            }
+                                                        }
+                                                    }
                                                 </div>
 
                                                 // Thumbnail strip
@@ -176,7 +209,9 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                     </button>
                                                     // Thumbnails
                                                     <div class="flex gap-2 flex-wrap">
-                                                        {(0..5usize).map(|i| {
+                                                        {data.images.iter().enumerate().map(|(i, img)| {
+                                                            let url = img.url.clone();
+                                                            let full_url = if url.starts_with("http") { url } else { format!("{}{}", client::catalog::base_url(), url) };
                                                             view! {
                                                                 <button
                                                                     class=move || format!(
@@ -185,19 +220,17 @@ pub fn ProductDetailPage() -> impl IntoView {
                                                                     )
                                                                     on:click=move |_| active_thumb.set(i)
                                                                 >
-                                                                    <div class="w-full h-full flex items-center justify-center">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                                                            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                                                                            <polyline points="21 15 16 10 5 21"></polyline>
-                                                                        </svg>
-                                                                    </div>
+                                                                    <img src=full_url alt="Thumbnail" class="w-full h-full object-cover" />
                                                                 </button>
                                                             }
                                                         }).collect_view()}
                                                     </div>
                                                     // Next arrow
-                                                    <button class="mt-2 p-1 text-gray-400 hover:text-black transition-colors cursor-pointer flex-shrink-0" on:click=move |_| {
-                                                        active_thumb.update(|i| { if *i < 4 { *i += 1; } });
+                                                    <button class="mt-2 p-1 text-gray-400 hover:text-black transition-colors cursor-pointer flex-shrink-0" on:click={
+                                                        let max = data.images.len().saturating_sub(1);
+                                                        move |_| {
+                                                            active_thumb.update(|i| { if *i < max { *i += 1; } });
+                                                        }
                                                     }>
                                                         {icon_chevron_right().into_any()}
                                                     </button>

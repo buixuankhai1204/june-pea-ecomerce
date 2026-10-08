@@ -12,9 +12,9 @@ use std::sync::OnceLock;
 use uuid::Uuid;
 
 const TOKEN_KEY: &str = "june_pea_token";
-const DEFAULT_BASE_URL: &str = "https://june-pea-backend-production.up.railway.app";
+const DEFAULT_BASE_URL: &str = "http://localhost:3000";
 
-fn base_url() -> String {
+pub fn base_url() -> String {
     let resolved = resolve_base_url_impl();
     println!("Using base url: {}", resolved);
     resolved
@@ -186,6 +186,7 @@ pub mod identity {
 
 pub mod catalog {
     use super::*;
+    pub use super::base_url;
 
     pub async fn list_products(page: i64, page_size: i64) -> Result<PaginatedProducts, ApiError> {
         get(&format!(
@@ -245,6 +246,51 @@ pub mod catalog {
 
     pub async fn get_category_tree() -> Result<Vec<CategoryNode>, ApiError> {
         get("/api/v1/catalog/categories/tree").await
+    }
+
+    pub async fn list_product_images(id: Uuid) -> Result<Vec<ProductImage>, ApiError> {
+        get(&format!("/api/v1/catalog/products/{}/images", id)).await
+    }
+
+    pub async fn add_product_image(
+        id: Uuid,
+        req: AddProductImageRequest,
+    ) -> Result<bool, ApiError> {
+        post::<bool, _>(&format!("/api/v1/catalog/products/{}/images", id), &req).await
+    }
+
+    pub async fn set_primary_image(product_id: Uuid, image_id: Uuid) -> Result<bool, ApiError> {
+        patch::<bool, _>(
+            &format!(
+                "/api/v1/catalog/products/{}/images/{}/primary",
+                product_id, image_id
+            ),
+            &serde_json::json!({}),
+        )
+        .await
+    }
+
+    pub async fn delete_product_image(image_id: Uuid) -> Result<bool, ApiError> {
+        delete::<bool>(&format!("/api/v1/catalog/products/images/{}", image_id)).await
+    }
+
+    pub async fn upload_product_image(id: Uuid, file: web_sys::File) -> Result<String, ApiError> {
+        let url = format!("{}{}/api/v1/catalog/products/{}/images/upload", base_url(), "", id);
+        let mut req = Request::post(&url);
+        
+        if let Some(token) = get_token() {
+            req = req.header("Authorization", &format!("Bearer {}", token));
+        }
+
+        let form_data = web_sys::FormData::new().map_err(|e| ApiError::Network(format!("{:?}", e)))?;
+        form_data.append_with_blob("file", &file).map_err(|e| ApiError::Network(format!("{:?}", e)))?;
+
+        let resp = req.body(form_data).map_err(|e| ApiError::Network(e.to_string()))?
+            .send()
+            .await
+            .map_err(|e| ApiError::Network(e.to_string()))?;
+
+        parse_response::<String>(resp).await
     }
 }
 

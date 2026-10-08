@@ -7,6 +7,10 @@ use sha2::Sha512;
 use std::collections::BTreeMap;
 use tracing::debug;
 
+mod gateway;
+
+pub use gateway::VnPayGateway;
+
 pub struct VnPayClient {
     config: PaymentConfig,
 }
@@ -17,7 +21,16 @@ pub struct VnPayPaymentRequest {
     pub amount: i64,
     pub order_info: String,
     pub client_ip: Option<String>,
+    /// becomes `vnp_CreateDate`; a refund has to quote it back as `vnp_TransactionDate`
+    pub create_date: DateTime<Utc>,
     pub expire_at: DateTime<Utc>,
+}
+
+/// The `yyyyMMddHHmmss` form VNPay wants for every date. VNPay documents these as GMT+7;
+/// payment URLs have always been sent in UTC, and a refund must quote the original date
+/// back unchanged, so every date we send goes through here.
+pub(crate) fn vnpay_timestamp(at: DateTime<Utc>) -> String {
+    at.format("%Y%m%d%H%M%S").to_string()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -56,14 +69,8 @@ impl VnPayClient {
                 .clone()
                 .unwrap_or_else(|| "0.0.0.0".to_string()),
         );
-        params.insert(
-            "vnp_CreateDate".into(),
-            Utc::now().format("%Y%m%d%H%M%S").to_string(),
-        );
-        params.insert(
-            "vnp_ExpireDate".into(),
-            req.expire_at.format("%Y%m%d%H%M%S").to_string(),
-        );
+        params.insert("vnp_CreateDate".into(), vnpay_timestamp(req.create_date));
+        params.insert("vnp_ExpireDate".into(), vnpay_timestamp(req.expire_at));
         params.insert("vnp_BankCode".into(), "VNPAYQR".to_string());
 
         let query_string = Self::build_query_string(&params);
@@ -116,7 +123,7 @@ impl VnPayClient {
             .join("&")
     }
 
-    fn sign(secret: &str, data: &str) -> String {
+    pub(crate) fn sign(secret: &str, data: &str) -> String {
         let mut mac = Hmac::<Sha512>::new_from_slice(secret.as_bytes()).expect("valid key");
         mac.update(data.as_bytes());
         hex::encode(mac.finalize().into_bytes())

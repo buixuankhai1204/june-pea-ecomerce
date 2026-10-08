@@ -17,8 +17,15 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+
     #[error("Conflict {0}")]
     Conflict(String),
+
+    /// Another service we depend on is down, slow, or sent something we can't trust.
+    #[error("Bad gateway: {0}")]
+    BadGateway(String),
 
     #[error("Internal server error")]
     InternalServerError,
@@ -34,7 +41,9 @@ impl IntoResponse for AppError {
             ),
             Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             Self::Validation(msg) => (StatusCode::BAD_REQUEST, msg),
+            Self::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
             Self::Conflict(msg) => (StatusCode::CONFLICT, msg),
+            Self::BadGateway(msg) => (StatusCode::BAD_GATEWAY, msg),
             Self::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error".into(),

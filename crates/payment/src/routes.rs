@@ -6,11 +6,13 @@ use crate::usecase::{
     refund_payment::RefundPaymentUsecase,
 };
 use axum::extract::{Path, RawQuery, State};
+use axum::Extension;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_qs::from_str;
+use shared::auth::UserClaims;
 use shared::AppError;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -125,11 +127,17 @@ async fn vnpay_ipn_handler(
     }
 }
 
+/// Moves real money back to the customer, so staff only. The auth middleware has put the
+/// caller's claims in the request by the time we get here.
 async fn refund_payment_handler(
     State(state): State<PaymentUsecase>,
+    Extension(claims): Extension<UserClaims>,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
+    if claims.role != "admin" {
+        return Err(AppError::Forbidden("Only admins can refund payments".into()));
+    }
     let usecase = state.refund_payment();
-    usecase.execute(order_id).await?;
+    usecase.execute(order_id, &claims.sub.to_string()).await?;
     Ok(Json(true))
 }

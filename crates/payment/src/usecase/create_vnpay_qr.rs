@@ -64,13 +64,14 @@ impl CreateVnPayQrUsecase {
         }
 
         let txn_ref = VnPayClient::random_txn_ref();
-        let expire_at =
-            chrono::Utc::now() + chrono::Duration::minutes(self.config.qr_expiry_minutes);
+        let now = chrono::Utc::now();
+        let expire_at = now + chrono::Duration::minutes(self.config.qr_expiry_minutes);
         let payment_request = VnPayPaymentRequest {
             txn_ref: txn_ref.clone(),
             amount: order.total,
             order_info: format!("Thanh toan don hang {}", order.id),
             client_ip: client_ip.clone(),
+            create_date: now,
             expire_at,
         };
 
@@ -79,7 +80,8 @@ impl CreateVnPayQrUsecase {
             .build_payment_url(&payment_request)
             .map_err(|_| AppError::InternalServerError)?;
 
-        let intent = PaymentIntent::new(
+        let intent = PaymentIntent::new_at(
+            now,
             order_id,
             order.total,
             payment_response.payment_url.clone(),

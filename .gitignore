@@ -24,4 +24,7 @@ target
 
 /crates/frontend/dist
 /crates/Cargo.lock
-/crates/uploads
+/uploads
+/crates/.agent
+.agent
+.idea

@@ -2,6 +2,7 @@ use crate::api::client::catalog as catalog_api;
 use crate::api::types::{
     CreateProductRequest, CreateVariantRequest, Product, ProductWithVariants, UpdateProductRequest,
 };
+use leptos::html;
 use leptos::prelude::*;
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -63,6 +64,7 @@ pub fn AdminProductsPage() -> impl IntoView {
     let (v_sku, set_v_sku) = signal("".to_string());
     let (v_name, set_v_name) = signal("".to_string());
     let (v_price, set_v_price) = signal("".to_string());
+    let variant_image_input_ref = NodeRef::<html::Input>::new();
 
     let products_resource: LocalResource<Vec<ProductWithVariants>> =
         LocalResource::new(move || async move {
@@ -108,6 +110,37 @@ pub fn AdminProductsPage() -> impl IntoView {
     let delete_variant_action = Action::new_local(|id: &Uuid| {
         let id = *id;
         async move { catalog_api::delete_variant(id).await }
+    });
+
+    let upload_variant_image_action = Action::new_local(|(product_id, variant_id, file): &(Uuid, Uuid, web_sys::File)| {
+        let product_id = *product_id;
+        let variant_id = *variant_id;
+        let file = file.clone();
+        async move {
+            match catalog_api::upload_product_image(product_id, file).await {
+                Ok(url) => {
+                    if let Ok(product) = catalog_api::get_product_by_id(product_id).await {
+                        if let Some(variant) = product.variants.iter().find(|v| v.id == variant_id) {
+                            let mut new_attrs = variant.attributes.clone();
+                            if let Some(obj) = new_attrs.as_object_mut() {
+                                obj.insert("image".to_string(), serde_json::json!(url));
+                            } else {
+                                new_attrs = serde_json::json!({ "image": url });
+                            }
+                            let _ = catalog_api::update_variant(variant_id, crate::api::types::UpdateVariantRequest {
+                                sku: variant.sku.clone(),
+                                name: variant.name.clone(),
+                                base_price: variant.base_price,
+                                sale_price: variant.sale_price,
+                                attributes: new_attrs,
+                            }).await;
+                        }
+                    }
+                    Ok(url)
+                },
+                Err(e) => Err(e)
+            }
+        }
     });
 
     let on_submit_product = move |ev: leptos::web_sys::SubmitEvent| {
@@ -159,6 +192,19 @@ pub fn AdminProductsPage() -> impl IntoView {
             set_v_name.set("".to_string());
             set_v_price.set("".to_string());
             variants_resource.refetch();
+
+            if let Some(input) = variant_image_input_ref.get() {
+                input.click();
+            }
+        }
+    });
+
+    Effect::new(move |_| {
+        if upload_variant_image_action.value().get().is_some() {
+            variants_resource.refetch();
+            if let Some(input) = variant_image_input_ref.get() {
+                input.set_value("");
+            }
         }
     });
 
@@ -419,6 +465,42 @@ pub fn AdminProductsPage() -> impl IntoView {
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Price"</label>
                                             <input type="text" prop:value=v_price on:input=move |ev| set_v_price.set(event_target_value(&ev)) class="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm outline-none" placeholder="19.99" required />
                                         </div>
+
+                                        <div class="space-y-2">
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">"Images"</label>
+                                            <input
+                                                node_ref=variant_image_input_ref
+                                                type="file"
+                                                accept="image/*"
+                                                class="hidden"
+                                                on:change=move |ev| {
+                                                    let target = event_target::<web_sys::HtmlInputElement>(&ev);
+                                                    if let Some(files) = target.files() {
+                                                        if let Some(file) = files.get(0) {
+                                                            if let Some(Ok(variant_id)) = create_variant_action.value().get() {
+                                                                if let Some(p) = selected_product_for_variants.get() {
+                                                                    upload_variant_image_action.dispatch((p.id, variant_id, file));
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            />
+                                            <button
+                                                type="button"
+                                                class="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                                                on:click=move |_| {
+                                                    if let Some(input) = variant_image_input_ref.get() {
+                                                        input.click();
+                                                    }
+                                                }
+                                                disabled=move || upload_variant_image_action.pending().get()
+                                            >
+                                                {move || if upload_variant_image_action.pending().get() { "Uploading..." } else { "Choose Images" }}
+                                            </button>
+                                            <p class="text-xs text-gray-400">"The picker will reopen after you add a variant. Existing selections are not cleared."</p>
+                                        </div>
+
                                         <button type="submit" class="w-full bg-[#FCE300] hover:bg-yellow-400 text-gray-900 font-bold py-2.5 rounded-xl transition-all cursor-pointer">"Add Variant"</button>
                                     </form>
                                 </div>
@@ -440,9 +522,20 @@ pub fn AdminProductsPage() -> impl IntoView {
                                                                         let v_id = v.id;
                                                                         view! {
                                                                             <div class="p-4 bg-gray-50 rounded-2xl flex items-center justify-between group">
-                                                                                <div>
-                                                                                    <p class="font-bold text-gray-900 text-sm">{v.name.clone()}</p>
-                                                                                    <p class="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{v.sku.clone()}</p>
+                                                                                <div class="flex items-center gap-3">
+                                                                                    {
+                                                                                        let img_url = v.attributes.get("image").and_then(|val| val.as_str()).unwrap_or("");
+                                                                                        if !img_url.is_empty() {
+                                                                                            let full_url = if img_url.starts_with("http") { img_url.to_string() } else { format!("{}{}", crate::api::client::base_url(), img_url) };
+                                                                                            view! { <img src=full_url alt="Variant" class="w-10 h-10 object-cover rounded-lg border border-gray-200" /> }.into_any()
+                                                                                        } else {
+                                                                                            view! { <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-[8px] text-gray-400 font-bold uppercase">"No Img"</div> }.into_any()
+                                                                                        }
+                                                                                    }
+                                                                                    <div>
+                                                                                        <p class="font-bold text-gray-900 text-sm">{v.name.clone()}</p>
+                                                                                        <p class="text-[10px] text-gray-400 font-mono uppercase tracking-wider">{v.sku.clone()}</p>
+                                                                                    </div>
                                                                                 </div>
                                                                                 <div class="flex items-center gap-4">
                                                                                     <div class="text-sm font-black text-gray-900">{"$"}{v.base_price.to_string()}</div>

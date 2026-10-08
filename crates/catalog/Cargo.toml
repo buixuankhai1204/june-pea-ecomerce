@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 shared = { path = "../shared" }
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -18,3 +18,4 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
 async-recursion = "1.1"
+image = "0.24.9"

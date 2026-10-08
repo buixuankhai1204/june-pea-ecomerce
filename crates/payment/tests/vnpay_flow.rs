@@ -162,6 +162,9 @@ fn test_config() -> PaymentConfig {
         default_locale: "vn".into(),
         order_type: "fashion".into(),
         qr_expiry_minutes: 15,
+        api_url: "http://localhost:0/merchant_webapi/api/transaction".into(),
+        server_ip: "127.0.0.1".into(),
+        api_timeout_secs: 10,
     }
 }
 

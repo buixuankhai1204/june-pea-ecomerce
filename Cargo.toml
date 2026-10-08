@@ -9,7 +9,8 @@ members = [
     "crates/identify",
     "crates/ordering",
     "crates/frontend",
-    "crates/payment"
+    "crates/payment",
+    "crates/test-support"
 ]
 
 [workspace.dependencies]
@@ -20,6 +21,9 @@ tower-http = { version = "0.6.8", features = ["trace", "cors", "fs"] }
 
 # Database
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "macros", "rust_decimal"] }
+
+# Outbound HTTP (calls to other services, e.g. VNPay's merchant API)
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
 
 # Serialization & Utils
 serde = { version = "1.0", features = ["derive"] }

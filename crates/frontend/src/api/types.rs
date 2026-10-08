@@ -35,10 +35,29 @@ pub struct ProductVariant {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ProductImage {
+    pub id: Uuid,
+    pub product_id: Uuid,
+    pub url: String,
+    pub is_primary: bool,
+    pub position: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AddProductImageRequest {
+    pub url: String,
+    pub is_primary: bool,
+    pub position: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductWithVariants {
     pub product: Product,
     pub variants: Vec<ProductVariant>,
+    #[serde(default)]
+    pub images: Vec<ProductImage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -9,8 +9,9 @@ use crate::usecase::{
     product_by_id::GetProductByIdUsecase, product_details::GetProductUsecase,
     update_product::UpdateProductUsecase, update_variant::UpdateVariantUsecase,
     search_products::SearchProductsUsecase, get_category_tree::GetCategoryTreeUsecase,
+    upload_image::UploadProductImageUsecase,
 };
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, State, Multipart};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -34,13 +35,14 @@ pub struct CatalogUsecase {
     delete_variant_usecase: Arc<DeleteVariantUsecase>,
     search_products_usecase: Arc<SearchProductsUsecase>,
     get_category_tree_usecase: Arc<GetCategoryTreeUsecase>,
+    upload_product_image_usecase: Arc<UploadProductImageUsecase>,
 }
 
 impl CatalogUsecase {
     pub fn new(repo: Arc<dyn CatalogRepository>, cache: Arc<dyn CatalogCache>) -> Self {
         Self {
             list_products_usecase: Arc::new(ListProductsUsecase::new(repo.clone())),
-            get_product_usecase: Arc::new(GetProductUsecase::new(repo.clone(), cache)),
+            get_product_usecase: Arc::new(GetProductUsecase::new(repo.clone(), cache.clone())),
             get_product_by_id_usecase: Arc::new(GetProductByIdUsecase::new(repo.clone())),
             create_category_usecase: Arc::new(CreateCategoryUsecase::new(repo.clone())),
             create_product_usecase: Arc::new(CreateProductUsecase::new(repo.clone())),
@@ -52,7 +54,8 @@ impl CatalogUsecase {
             update_variant_usecase: Arc::new(UpdateVariantUsecase::new(repo.clone())),
             delete_variant_usecase: Arc::new(DeleteVariantUsecase::new(repo.clone())),
             search_products_usecase: Arc::new(SearchProductsUsecase::new(repo.clone())),
-            get_category_tree_usecase: Arc::new(GetCategoryTreeUsecase::new(repo)),
+            get_category_tree_usecase: Arc::new(GetCategoryTreeUsecase::new(repo.clone())),
+            upload_product_image_usecase: Arc::new(UploadProductImageUsecase::new(repo.clone(), cache)),
         }
     }
 
@@ -181,6 +184,10 @@ pub fn init() -> Router<CatalogUsecase> {
                 .patch(update_product_handler)
                 .delete(delete_product_handler),
         )
+        .route(
+            "/products/{id}/images/upload",
+            post(upload_product_image_handler),
+        )
         .route("/products/slug/{slug}", get(get_product_handler))
         .route(
             "/categories",
@@ -193,6 +200,26 @@ pub fn init() -> Router<CatalogUsecase> {
             "/variants/{id}",
             patch(update_variant_handler).delete(delete_variant_handler),
         )
+}
+
+async fn upload_product_image_handler(
+    State(state): State<CatalogUsecase>,
+    Path(id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<String>, AppError> {
+    if let Some(field) = multipart.next_field().await.map_err(|e| AppError::Validation(e.to_string()))? {
+        let file_name = field.file_name().unwrap_or("image.png").to_string();
+        let data = field.bytes().await.map_err(|e| AppError::Validation(e.to_string()))?;
+        
+        let url = state
+            .upload_product_image_usecase
+            .execute(id, &file_name, data.to_vec())
+            .await?;
+            
+        Ok(Json(url))
+    } else {
+        Err(AppError::Validation("No file uploaded".to_string()))
+    }
 }
 
 async fn list_products_handler(
