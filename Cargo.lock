@@ -47,6 +47,7 @@ dependencies = [
  "marketing",
  "ordering",
  "payment",
+ "reqwest",
  "rust_decimal",
  "serde",
  "serde_json",
@@ -104,15 +105,18 @@ dependencies = [
  "ordering",
  "payment",
  "redis",
+ "reqwest",
  "serde",
  "serde_json",
  "shared",
  "sqlx",
+ "test-support",
  "thiserror 1.0.69",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -2218,6 +2222,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
+ "reqwest",
  "serde",
  "serde_json",
  "shared",
@@ -2993,6 +2998,7 @@ dependencies = [
  "axum",
  "chrono",
  "futures",
+ "reqwest",
  "serde",
  "serde_json",
  "shared",

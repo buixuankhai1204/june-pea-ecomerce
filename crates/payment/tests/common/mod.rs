@@ -9,14 +9,11 @@ use axum::http::StatusCode;
 use axum::middleware::{from_fn, Next};
 use axum::response::Response;
 use axum::Router;
-use ordering::domain::model::{NewOrderItem, Order, OrderItem, OrderStatus};
-use ordering::domain::repository::OrderRepository;
-use ordering::usecase::{
-    get_order::GetOrderUsecase, place_order::PlaceOrderUsecase,
-    update_order_status::UpdateOrderStatusUsecase,
-};
 use payment::config::PaymentConfig;
-use payment::domain::{GatewayError, PaymentGateway, RefundReceipt, RefundRequest};
+use payment::domain::{
+    GatewayError, OrderLookup, OrderState, OrderSummary, PaymentGateway, RefundReceipt,
+    RefundRequest,
+};
 use payment::infrastructure::persistence::memory::InMemoryPaymentRepository;
 use payment::infrastructure::vnpay::{VnPayClient, VnPayGateway};
 use payment::routes::PaymentUsecase;
@@ -26,7 +23,6 @@ use payment::usecase::{
 };
 use serde_json::Value;
 use shared::auth::UserClaims;
-use shared::database::DbExecutor;
 use shared::error::AppError;
 use shared::testing::NoopUnitOfWork;
 use std::collections::HashMap;
@@ -50,85 +46,49 @@ pub fn test_config(api_url: String) -> PaymentConfig {
     }
 }
 
-/// The ordering side, in memory: only what the payment use cases touch.
+/// The ordering service as payment sees it (`OrderLookup`), in memory.
 #[derive(Default)]
-pub struct InMemoryOrderRepository {
-    orders: Mutex<HashMap<Uuid, Order>>,
+pub struct FakeOrders {
+    orders: Mutex<HashMap<Uuid, OrderSummary>>,
 }
 
-impl InMemoryOrderRepository {
-    pub fn status_of(&self, id: Uuid) -> OrderStatus {
-        self.orders.lock().unwrap()[&id].status.clone()
+impl FakeOrders {
+    pub fn add(&self, total: i64) -> Uuid {
+        let id = Uuid::new_v4();
+        self.orders.lock().unwrap().insert(
+            id,
+            OrderSummary {
+                id,
+                total,
+                state: OrderState::Pending,
+            },
+        );
+        id
     }
 
-    pub fn set_status(&self, id: Uuid, status: OrderStatus) {
-        self.orders.lock().unwrap().get_mut(&id).unwrap().status = status;
+    pub fn state_of(&self, id: Uuid) -> OrderState {
+        self.orders.lock().unwrap()[&id].state
+    }
+
+    pub fn set_state(&self, id: Uuid, state: OrderState) {
+        self.orders.lock().unwrap().get_mut(&id).unwrap().state = state;
     }
 }
 
 #[async_trait]
-impl OrderRepository for InMemoryOrderRepository {
-    async fn create_order(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        order: &Order,
-        _items: &[OrderItem],
-    ) -> Result<(), AppError> {
-        self.orders.lock().unwrap().insert(order.id, order.clone());
-        Ok(())
-    }
-
-    async fn get_order_by_id(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        id: Uuid,
-    ) -> Result<Order, AppError> {
+impl OrderLookup for FakeOrders {
+    async fn find(&self, order_id: Uuid) -> Result<OrderSummary, AppError> {
         self.orders
             .lock()
             .unwrap()
-            .get(&id)
+            .get(&order_id)
             .cloned()
-            .ok_or_else(|| AppError::NotFound(format!("Order {id} not found")))
+            .ok_or_else(|| AppError::NotFound(format!("Order {order_id} not found")))
     }
 
-    async fn update_order_status(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        id: Uuid,
-        status: OrderStatus,
-    ) -> Result<(), AppError> {
-        self.set_status(id, status);
+    async fn mark_completed(&self, order_id: Uuid) -> Result<(), AppError> {
+        self.set_state(order_id, OrderState::Completed);
         Ok(())
-    }
-
-    async fn list_orders(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        _customer_id: Uuid,
-    ) -> Result<Vec<Order>, AppError> {
-        Ok(vec![])
-    }
-
-    async fn list_all_orders(&self, _exec: &mut dyn DbExecutor) -> Result<Vec<Order>, AppError> {
-        Ok(vec![])
-    }
-
-    async fn update_order_note(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        _id: Uuid,
-        _note: String,
-    ) -> Result<(), AppError> {
-        Ok(())
-    }
-
-    async fn list_customer_recent_orders(
-        &self,
-        _exec: &mut dyn DbExecutor,
-        _customer_id: Uuid,
-        _limit: i64,
-    ) -> Result<Vec<Order>, AppError> {
-        Ok(vec![])
     }
 }
 
@@ -159,15 +119,14 @@ pub struct TestApp {
     pub http: reqwest::Client,
     pub vnpay: VnPayStub,
     pub payments: Arc<InMemoryPaymentRepository>,
-    pub orders: Arc<InMemoryOrderRepository>,
-    place_order: PlaceOrderUsecase,
+    pub orders: Arc<FakeOrders>,
 }
 
 pub async fn spawn_app() -> TestApp {
     let vnpay = VnPayStub::start().await;
     let config = test_config(vnpay.api_url());
     let payments = Arc::new(InMemoryPaymentRepository::default());
-    let orders = Arc::new(InMemoryOrderRepository::default());
+    let orders = Arc::new(FakeOrders::default());
     let uow = Arc::new(NoopUnitOfWork);
 
     let client = Arc::new(VnPayClient::new(config.clone()));
@@ -175,7 +134,7 @@ pub async fn spawn_app() -> TestApp {
         Arc::new(CreateVnPayQrUsecase::new(
             payments.clone(),
             uow.clone(),
-            Arc::new(GetOrderUsecase::new(orders.clone(), uow.clone())),
+            orders.clone(),
             client.clone(),
             config.clone(),
         )),
@@ -184,7 +143,7 @@ pub async fn spawn_app() -> TestApp {
             payments.clone(),
             uow.clone(),
             client,
-            Arc::new(UpdateOrderStatusUsecase::new(orders.clone(), uow.clone())),
+            orders.clone(),
         )),
         Arc::new(RefundPaymentUsecase::new(
             payments.clone(),
@@ -213,7 +172,6 @@ pub async fn spawn_app() -> TestApp {
         http: reqwest::Client::new(),
         vnpay,
         payments,
-        place_order: PlaceOrderUsecase::new(orders.clone(), uow),
         orders,
     }
 }
@@ -238,17 +196,7 @@ impl TestApp {
 
     /// a pending order worth `total_vnd`
     pub async fn seed_order(&self, total_vnd: i64) -> Uuid {
-        self.place_order
-            .execute(
-                None,
-                vec![NewOrderItem {
-                    variant_id: Uuid::new_v4(),
-                    quantity: 1,
-                    unit_price: total_vnd,
-                }],
-            )
-            .await
-            .unwrap()
+        self.orders.add(total_vnd)
     }
 
     pub async fn request_qr(&self, order_id: Uuid, role: &str) -> Reply {

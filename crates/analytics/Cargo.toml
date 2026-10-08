@@ -22,3 +22,7 @@ async-trait = { workspace = true }
 sqlx = { workspace = true }
 rust_decimal = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true }
+sqlx = { workspace = true, features = ["migrate"] }

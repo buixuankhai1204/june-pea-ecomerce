@@ -12,8 +12,7 @@
 mod common;
 
 use common::*;
-use ordering::domain::model::OrderStatus;
-use payment::domain::PaymentStatus;
+use payment::domain::{OrderState, PaymentStatus};
 use serde_json::json;
 use test_support::vnpay::{paid_ipn_query, signed_ipn_query, Behaviour, HASH_SECRET};
 use uuid::Uuid;
@@ -63,7 +62,7 @@ async fn qr_request_for_an_unknown_order_is_404() {
 async fn qr_request_for_an_order_that_is_not_pending_is_409() {
     let app = spawn_app().await;
     let order_id = app.seed_order(150_000).await;
-    app.orders.set_status(order_id, OrderStatus::Cancelled);
+    app.orders.set_state(order_id, OrderState::Cancelled);
 
     let reply = app.request_qr(order_id, "customer").await;
 
@@ -95,7 +94,7 @@ async fn a_signed_ipn_marks_the_payment_paid_and_completes_the_order() {
 
     let status = app.payment_status(order_id, "customer").await;
     assert_eq!(status.body["status"], "Paid");
-    assert_eq!(app.orders.status_of(order_id), OrderStatus::Completed);
+    assert_eq!(app.orders.state_of(order_id), OrderState::Completed);
 }
 
 #[tokio::test]
@@ -113,7 +112,7 @@ async fn an_ipn_with_a_bad_signature_is_refused_and_changes_nothing() {
         app.payment_status(order_id, "customer").await.body["status"],
         "Pending"
     );
-    assert_eq!(app.orders.status_of(order_id), OrderStatus::Pending);
+    assert_eq!(app.orders.state_of(order_id), OrderState::Pending);
 }
 
 #[tokio::test]
@@ -126,7 +125,7 @@ async fn an_ipn_for_the_wrong_amount_is_refused_and_changes_nothing() {
     let reply = app.ipn(&paid_ipn_query(HASH_SECRET, txn_ref, 1_000)).await;
 
     assert_eq!(reply.body["rsp_code"], "04");
-    assert_eq!(app.orders.status_of(order_id), OrderStatus::Pending);
+    assert_eq!(app.orders.state_of(order_id), OrderState::Pending);
 }
 
 #[tokio::test]
@@ -152,7 +151,7 @@ async fn a_declined_payment_is_recorded_as_failed_and_the_order_stays_pending() 
         app.payment_status(order_id, "customer").await.body["status"],
         "Failed"
     );
-    assert_eq!(app.orders.status_of(order_id), OrderStatus::Pending);
+    assert_eq!(app.orders.state_of(order_id), OrderState::Pending);
 }
 
 #[tokio::test]

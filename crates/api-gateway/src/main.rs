@@ -10,6 +10,7 @@ use identify::usecase::auth::AuthUsecase;
 use inventory::routes::InventoryUsecase;
 use payment::config::PaymentConfig;
 use payment::infrastructure::persistence::postgres::PostgresPaymentRepository;
+use payment::infrastructure::ordering::OrderingAdapter;
 use payment::infrastructure::vnpay::{VnPayClient, VnPayGateway};
 use payment::routes::PaymentUsecase as PaymentRouter;
 use payment::usecase::{
@@ -221,10 +222,14 @@ async fn main() -> anyhow::Result<()> {
     let payment_repo: Arc<dyn payment::domain::PaymentRepository> =
         Arc::new(PostgresPaymentRepository::new());
     let vn_pay_client = Arc::new(VnPayClient::new(payment_config.clone()));
+    let order_lookup = Arc::new(OrderingAdapter::new(
+        get_order.clone(),
+        update_order_status.clone(),
+    ));
     let create_vnpay_qr = Arc::new(CreateVnPayQrUsecase::new(
         payment_repo.clone(),
         postgrese_unit_of_work.clone(),
-        get_order.clone(),
+        order_lookup.clone(),
         vn_pay_client.clone(),
         payment_config.clone(),
     ));
@@ -236,7 +241,7 @@ async fn main() -> anyhow::Result<()> {
         payment_repo.clone(),
         postgrese_unit_of_work.clone(),
         vn_pay_client.clone(),
-        update_order_status.clone(),
+        order_lookup.clone(),
     ));
     let vnpay_gateway = Arc::new(VnPayGateway::new(&payment_config)?);
     let refund_payment = Arc::new(payment::usecase::refund_payment::RefundPaymentUsecase::new(
