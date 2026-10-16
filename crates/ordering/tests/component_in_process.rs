@@ -12,14 +12,23 @@ use ordering::usecase::{
     update_order_status::UpdateOrderStatusUsecase,
 };
 use serde_json::{json, Value};
-use shared::testing::NoopUnitOfWork;
+use shared::testing::{stand_in_for_auth, NoopUnitOfWork};
 use std::sync::Arc;
 use uuid::Uuid;
 
 struct TestApp {
     base: String,
+    /// logged in as an admin, so the tests that aren't about permissions don't think about them
     http: reqwest::Client,
     repo: Arc<InMemoryOrderRepository>,
+}
+
+/// A client that sends the headers `stand_in_for_auth` turns into a login with that role.
+fn client_as(role: &str, user: Uuid) -> reqwest::Client {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("x-test-role", role.parse().unwrap());
+    headers.insert("x-test-user", user.to_string().parse().unwrap());
+    reqwest::Client::builder().default_headers(headers).build().unwrap()
 }
 
 async fn spawn_app() -> TestApp {
@@ -35,11 +44,14 @@ async fn spawn_app() -> TestApp {
         Arc::new(UpdateOrderNoteUsecase::new(repo.clone(), uow.clone())),
         Arc::new(ListCustomerRecentOrdersUsecase::new(repo.clone(), uow)),
     );
-    let app = axum::Router::new().nest("/api/v1/ordering", init().with_state(state));
+    // like the gateway: the routes sit behind the auth middleware
+    let app = axum::Router::new()
+        .nest("/api/v1/ordering", init().with_state(state))
+        .layer(axum::middleware::from_fn(stand_in_for_auth));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}/api/v1/ordering", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    TestApp { base, http: reqwest::Client::new(), repo }
+    TestApp { base, http: client_as("admin", Uuid::new_v4()), repo }
 }
 
 struct Reply {

@@ -5,14 +5,22 @@
 use inventory::infrastructure::persistence::memory::InMemoryInventoryRepository;
 use inventory::routes::{init, InventoryUsecase};
 use serde_json::{json, Value};
-use shared::testing::NoopUnitOfWork;
+use shared::testing::{stand_in_for_auth, NoopUnitOfWork};
 use std::sync::Arc;
 use uuid::Uuid;
 
 struct TestApp {
     base: String,
+    /// logged in as staff, so the tests that aren't about permissions don't think about them
     http: reqwest::Client,
     repo: Arc<InMemoryInventoryRepository>,
+}
+
+/// A client that sends the headers `stand_in_for_auth` turns into a login with that role.
+fn client_as(role: &str) -> reqwest::Client {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("x-test-role", role.parse().unwrap());
+    reqwest::Client::builder().default_headers(headers).build().unwrap()
 }
 
 struct Reply {
@@ -23,11 +31,14 @@ struct Reply {
 async fn spawn_app() -> TestApp {
     let repo = Arc::new(InMemoryInventoryRepository::default());
     let state = InventoryUsecase::new(repo.clone(), Arc::new(NoopUnitOfWork));
-    let app = axum::Router::new().nest("/api/v1/inventory", init().with_state(state));
+    // like the gateway: the routes sit behind the auth middleware
+    let app = axum::Router::new()
+        .nest("/api/v1/inventory", init().with_state(state))
+        .layer(axum::middleware::from_fn(stand_in_for_auth));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}/api/v1/inventory", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    TestApp { base, http: reqwest::Client::new(), repo }
+    TestApp { base, http: client_as("staff"), repo }
 }
 
 impl TestApp {

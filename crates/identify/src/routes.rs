@@ -1,4 +1,5 @@
 use crate::dto::auth::{LoginRequest, LoginResponse, RegisterRequest};
+use crate::dto::user::UserView;
 use crate::usecase::{
     auth::AuthUsecase, change_password::ChangePasswordUsecase, delete_user::DeleteUserUsecase,
     get_me::GetMeUsecase, get_membership_summary::GetMembershipSummaryUsecase,
@@ -7,6 +8,7 @@ use crate::usecase::{
     create_staff::CreateStaffUsecase, list_staff::ListStaffUsecase,
 };
 use axum::{extract::State, routing::post, Json, Router};
+use shared::auth::{Admin, AuthUser, Staff};
 use shared::AppError;
 use std::sync::Arc;
 
@@ -28,13 +30,23 @@ pub struct UpdateProfileRequest {
     pub email: String,
 }
 
-pub fn init<S>() -> Router<S>
+/// Register and log in: the only identity routes anyone may call without a token.
+pub fn init_public<S>() -> Router<S>
 where
     S: IdentityState + Clone + Send + Sync + 'static,
 {
     Router::new()
         .route("/register", post(register_handler::<S>))
         .route("/login", post(login_handler::<S>))
+}
+
+/// Everything else. Mount it behind the auth middleware: each handler also checks the role it
+/// needs, so a route mounted without that middleware answers 401 instead of serving anyone.
+pub fn init<S>() -> Router<S>
+where
+    S: IdentityState + Clone + Send + Sync + 'static,
+{
+    Router::new()
         .route(
             "/me",
             axum::routing::get(get_me_handler::<S>).patch(update_profile_handler::<S>),
@@ -85,19 +97,19 @@ where
 
 async fn get_me_handler<S>(
     State(state): State<S>,
-    axum::extract::Extension(claims): axum::extract::Extension<shared::auth::UserClaims>,
-) -> Result<Json<crate::domain::model::User>, AppError>
+    AuthUser(claims): AuthUser,
+) -> Result<Json<UserView>, AppError>
 where
     S: IdentityState,
 {
     let usecase = state.get_me_usecase();
     let user = usecase.execute(claims.sub).await?;
-    Ok(Json(user))
+    Ok(Json(user.into()))
 }
 
 async fn update_profile_handler<S>(
     State(state): State<S>,
-    axum::extract::Extension(claims): axum::extract::Extension<shared::auth::UserClaims>,
+    AuthUser(claims): AuthUser,
     Json(payload): Json<UpdateProfileRequest>,
 ) -> Result<Json<serde_json::Value>, AppError>
 where
@@ -110,17 +122,19 @@ where
 
 async fn list_users_handler<S>(
     State(state): State<S>,
-) -> Result<Json<Vec<crate::domain::model::User>>, AppError>
+    Admin(_): Admin,
+) -> Result<Json<Vec<UserView>>, AppError>
 where
     S: IdentityState,
 {
     let usecase = state.list_users_usecase();
     let users = usecase.execute().await?;
-    Ok(Json(users))
+    Ok(Json(users.into_iter().map(UserView::from).collect()))
 }
 
 async fn list_memberships_handler<S>(
     State(state): State<S>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<crate::domain::model::UserMembership>>, AppError>
 where
     S: IdentityState,
@@ -132,6 +146,7 @@ where
 
 async fn get_membership_summary_handler<S>(
     State(state): State<S>,
+    Staff(_): Staff,
 ) -> Result<Json<crate::usecase::get_membership_summary::MembershipSummary>, AppError>
 where
     S: IdentityState,
@@ -148,7 +163,7 @@ pub struct ChangePasswordRequest {
 
 async fn change_password_handler<S>(
     State(state): State<S>,
-    axum::extract::Extension(claims): axum::extract::Extension<shared::auth::UserClaims>,
+    AuthUser(claims): AuthUser,
     Json(payload): Json<ChangePasswordRequest>,
 ) -> Result<Json<serde_json::Value>, AppError>
 where
@@ -161,6 +176,7 @@ where
 
 async fn delete_user_handler<S>(
     State(state): State<S>,
+    Admin(_): Admin,
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError>
 where
@@ -171,7 +187,10 @@ where
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
-async fn list_staff_handler<S>(State(state): State<S>) -> Result<Json<Vec<crate::dto::staff::StaffMember>>, AppError>
+async fn list_staff_handler<S>(
+    State(state): State<S>,
+    Admin(_): Admin,
+) -> Result<Json<Vec<crate::dto::staff::StaffMember>>, AppError>
 where
     S: IdentityState,
 {
@@ -188,6 +207,7 @@ pub struct CreateStaffRequest {
 
 async fn create_staff_handler<S>(
     State(state): State<S>,
+    Admin(_): Admin,
     Json(payload): Json<CreateStaffRequest>,
 ) -> Result<Json<crate::dto::staff::StaffMember>, AppError>
 where

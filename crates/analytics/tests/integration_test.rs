@@ -156,18 +156,30 @@ async fn export_is_a_csv_with_a_header_and_every_order_newest_first(pool: PgPool
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_export_route_serves_it_as_a_csv_download(pool: PgPool) {
-    let app = axum::Router::new().nest(
-        "/api/v1/analytics",
-        init().with_state(AnalyticsUsecase::new(Arc::new(pool))),
-    );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let base = serve(pool).await;
 
-    let res = reqwest::get(format!("{base}/api/v1/analytics/export-orders")).await.unwrap();
+    let res = staff_client("staff").get(format!("{base}/api/v1/analytics/export-orders")).send().await.unwrap();
 
     assert_eq!(res.status(), 200);
     assert_eq!(res.headers()["content-type"], "text/csv");
     assert!(res.headers()["content-disposition"].to_str().unwrap().contains("orders.csv"));
     assert!(res.text().await.unwrap().starts_with("order_id,customer_id"));
+}
+
+/// The analytics routes on a free port, behind the same auth stand-in the other crates use.
+async fn serve(pool: PgPool) -> String {
+    let app = axum::Router::new()
+        .nest("/api/v1/analytics", init().with_state(AnalyticsUsecase::new(Arc::new(pool))))
+        .layer(axum::middleware::from_fn(shared::testing::stand_in_for_auth));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    base
+}
+
+/// A client that sends the headers `stand_in_for_auth` turns into a login with that role.
+fn staff_client(role: &str) -> reqwest::Client {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("x-test-role", role.parse().unwrap());
+    reqwest::Client::builder().default_headers(headers).build().unwrap()
 }

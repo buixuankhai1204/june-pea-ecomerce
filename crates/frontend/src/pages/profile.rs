@@ -62,7 +62,7 @@ pub fn ProfilePage() -> impl IntoView {
         let user_resource = user_resource.clone();
         wasm_bindgen_futures::spawn_local(async move {
             let body = serde_json::json!({ "email": email_val });
-            match client::patch::<serde_json::Value, _>("/api/v1/identity/profile", &body).await {
+            match client::patch::<serde_json::Value, _>("/api/v1/identity/me", &body).await {
                 Ok(_) => {
                     update_success.set(true);
                     update_error.set(None);

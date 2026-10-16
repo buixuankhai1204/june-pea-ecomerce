@@ -22,6 +22,24 @@ This project follows a modular, domain-driven design:
 - `crates/shared`: Common utilities, structs, and error handling for all crates.
 - `migrations`: SQLx database migrations for the PostgreSQL database.
 
+## Access control
+
+Tokens carry a role: `customer` (the default for anyone who registers), `staff` or `admin`
+(admins count as staff). The gateway's auth middleware checks the token; each handler then
+says who may call it with an extractor from `shared::auth`, and answers 401 without a login or
+403 for the wrong role. A route mounted without the middleware answers 401, it never serves
+anyone.
+
+| Who | What |
+|---|---|
+| anyone | register, login, browse the catalog, validate a coupon, VNPay's IPN callback |
+| any logged-in user | their own profile and password, their own orders (place, read, cancel, list), a variant's stock, payment QR and status |
+| staff | change the catalog, stock and suppliers, coupons, every order's status and note, memberships, analytics |
+| admin | everything staff can, plus user and staff accounts, category-wide discounts, refunds |
+
+The gateway needs `JWT_SECRET` (there is no default, it refuses to start without one) and
+reads the rest of its settings from `.env`; copy `.env.example`, and never commit the copy.
+
 ## Testing
 
 See [docs/testing.md](docs/testing.md) for the test layers and how to run them.

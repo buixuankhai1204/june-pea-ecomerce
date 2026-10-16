@@ -28,3 +28,5 @@ target
 /crates/.agent
 .agent
 .idea
+# Local secrets: copy .env.example to .env (already committed once: rotate what it held)
+/.env

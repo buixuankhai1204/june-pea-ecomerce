@@ -2,6 +2,7 @@ use axum::extract::{Path, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use shared::auth::{Admin, Staff};
 use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -112,6 +113,7 @@ struct ValidateCouponResponse {
 
 async fn create_coupon_handler(
     State(state): State<MarketingUsecase>,
+    Staff(_): Staff,
     Json(body): Json<CreateCouponRequest>,
 ) -> Result<Json<Coupon>, AppError> {
     let usecase = state.create_coupon();
@@ -137,6 +139,7 @@ async fn validate_coupon_handler(
 
 async fn list_coupons_handler(
     State(state): State<MarketingUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<Coupon>>, AppError> {
     let usecase = state.list_coupons();
     let coupons = usecase.execute().await?;
@@ -145,6 +148,7 @@ async fn list_coupons_handler(
 
 async fn deactivate_coupon_handler(
     State(state): State<MarketingUsecase>,
+    Staff(_): Staff,
     Path(code): Path<String>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.deactivate_coupon();
@@ -154,6 +158,7 @@ async fn deactivate_coupon_handler(
 
 async fn delete_coupon_handler(
     State(state): State<MarketingUsecase>,
+    Staff(_): Staff,
     Path(code): Path<String>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_coupon();
@@ -169,6 +174,7 @@ struct ApplyCategoryDiscountRequest {
 
 async fn apply_category_discount_handler(
     State(state): State<MarketingUsecase>,
+    Admin(_): Admin,
     Json(body): Json<ApplyCategoryDiscountRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.apply_category_discount();
