@@ -145,3 +145,103 @@ fn encode_token_with(secret: &str, claims: UserClaims) -> Result<String, AppErro
     )
     .map_err(|_err| AppError::InternalServerError)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::Request;
+
+    fn claims(role: &str) -> UserClaims {
+        UserClaims { sub: Uuid::new_v4(), exp: usize::MAX / 2, role: role.into() }
+    }
+
+    fn parts_with(claims: Option<UserClaims>) -> Parts {
+        let mut req = Request::new(());
+        if let Some(c) = claims {
+            req.extensions_mut().insert(c);
+        }
+        req.into_parts().0
+    }
+
+    #[test]
+    fn admins_are_staff_but_customers_and_unknown_roles_are_not() {
+        assert!(claims("admin").is_staff());
+        assert!(claims("staff").is_staff());
+        assert!(!claims("customer").is_staff());
+        assert!(!claims("").is_staff());
+        assert!(!claims("Admin").is_staff(), "roles are matched exactly");
+    }
+
+    #[test]
+    fn only_admins_are_admins() {
+        assert!(claims("admin").is_admin());
+        assert!(!claims("staff").is_admin());
+        assert!(!claims("customer").is_admin());
+    }
+
+    #[test]
+    fn a_customer_may_only_touch_their_own_records() {
+        let me = claims("customer");
+
+        assert!(me.ensure_owner_or_staff(Some(me.sub)).is_ok());
+        assert!(matches!(me.ensure_owner_or_staff(Some(Uuid::new_v4())), Err(AppError::Forbidden(_))));
+        assert!(matches!(me.ensure_owner_or_staff(None), Err(AppError::Forbidden(_))));
+    }
+
+    #[test]
+    fn staff_may_touch_anyones_records_including_guest_ones() {
+        let staff = claims("staff");
+
+        assert!(staff.ensure_owner_or_staff(Some(Uuid::new_v4())).is_ok());
+        assert!(staff.ensure_owner_or_staff(None).is_ok());
+    }
+
+    #[tokio::test]
+    async fn extractors_answer_401_without_a_login() {
+        let mut parts = parts_with(None);
+
+        assert!(matches!(AuthUser::from_request_parts(&mut parts, &()).await, Err(AppError::Unauthorized(_))));
+        assert!(matches!(Staff::from_request_parts(&mut parts, &()).await, Err(AppError::Unauthorized(_))));
+        assert!(matches!(Admin::from_request_parts(&mut parts, &()).await, Err(AppError::Unauthorized(_))));
+    }
+
+    #[tokio::test]
+    async fn extractors_answer_403_to_a_caller_without_the_role() {
+        let mut customer = parts_with(Some(claims("customer")));
+        let mut staff = parts_with(Some(claims("staff")));
+
+        assert!(AuthUser::from_request_parts(&mut customer, &()).await.is_ok());
+        assert!(matches!(Staff::from_request_parts(&mut customer, &()).await, Err(AppError::Forbidden(_))));
+        assert!(matches!(Admin::from_request_parts(&mut customer, &()).await, Err(AppError::Forbidden(_))));
+        assert!(Staff::from_request_parts(&mut staff, &()).await.is_ok());
+        assert!(matches!(Admin::from_request_parts(&mut staff, &()).await, Err(AppError::Forbidden(_))));
+    }
+
+    #[tokio::test]
+    async fn admin_passes_every_extractor() {
+        let mut parts = parts_with(Some(claims("admin")));
+
+        assert!(AuthUser::from_request_parts(&mut parts, &()).await.is_ok());
+        assert!(Staff::from_request_parts(&mut parts, &()).await.is_ok());
+        assert!(Admin::from_request_parts(&mut parts, &()).await.is_ok());
+    }
+
+    #[test]
+    fn a_token_round_trips_with_the_same_secret_and_not_with_another() {
+        let original = claims("staff");
+
+        let token = encode_token_with("secret-a", original.clone()).unwrap();
+
+        let decoded = decode_token_with("secret-a", &token).unwrap();
+        assert_eq!((decoded.sub, decoded.role.as_str()), (original.sub, "staff"));
+        assert!(matches!(decode_token_with("secret-b", &token), Err(AppError::Unauthorized(_))));
+    }
+
+    #[test]
+    fn an_expired_token_is_rejected() {
+        let expired = UserClaims { sub: Uuid::new_v4(), exp: 1, role: "customer".into() };
+        let token = encode_token_with("secret-a", expired).unwrap();
+
+        assert!(matches!(decode_token_with("secret-a", &token), Err(AppError::Unauthorized(m)) if m.contains("expired")));
+    }
+}

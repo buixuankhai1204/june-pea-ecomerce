@@ -166,6 +166,28 @@ async fn the_export_route_serves_it_as_a_csv_download(pool: PgPool) {
     assert!(res.text().await.unwrap().starts_with("order_id,customer_id"));
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn every_analytics_route_is_for_staff_only(pool: PgPool) {
+    let base = serve(pool).await;
+    let paths = [
+        "dashboard-summary",
+        "revenue-analytics",
+        "low-stock",
+        "category-breakdown",
+        "recent-invoices",
+        "export-orders",
+    ];
+
+    for path in paths {
+        let url = format!("{base}/api/v1/analytics/{path}");
+        let anonymous = reqwest::get(&url).await.unwrap().status();
+        let customer = staff_client("customer").get(&url).send().await.unwrap().status();
+        let staff = staff_client("staff").get(&url).send().await.unwrap().status();
+        assert_eq!((anonymous.as_u16(), customer.as_u16()), (401, 403), "{path}");
+        assert_eq!(staff.as_u16(), 200, "{path}");
+    }
+}
+
 /// The analytics routes on a free port, behind the same auth stand-in the other crates use.
 async fn serve(pool: PgPool) -> String {
     let app = axum::Router::new()

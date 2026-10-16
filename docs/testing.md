@@ -59,7 +59,12 @@ cargo test --workspace --exclude frontend -- --ignored   # the ones that need Do
 
 1. Rules and decisions: unit test next to the code.
 2. A new route or error mapping: a case in `tests/component_in_process.rs` using the crate's
-   `InMemory…Repository` and `shared::testing::NoopUnitOfWork`.
+   `InMemory…Repository` and `shared::testing::NoopUnitOfWork`. Mount the routes behind
+   `axum::middleware::from_fn(shared::testing::stand_in_for_auth)`, which stands in for the
+   gateway's JWT middleware: the role comes from an `x-test-role` header (`customer`, `staff`
+   or `admin`), the user id from `x-test-user`, and no header means not logged in. Every
+   route gets a case for 401 (no login) and 403 (wrong role), see
+   [Access control](../README.md#access-control).
 3. New SQL: a case in the Postgres integration file.
 4. A new call to another service: a port, an adapter, a contract test (monolith) or a wiremock
    integration test (external), and one component test that shows what the caller does when

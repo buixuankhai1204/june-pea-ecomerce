@@ -221,6 +221,18 @@ async fn customers_cannot_refund_and_vnpay_is_not_called() {
 }
 
 #[tokio::test]
+async fn staff_who_are_not_admins_cannot_refund_either() {
+    let app = spawn_app().await;
+    let (order_id, _) = app.paid_order(150_000).await;
+
+    let reply = app.refund(order_id, "staff").await;
+
+    assert_eq!(reply.status, 403);
+    assert!(app.vnpay.refund_requests().await.is_empty());
+    assert_eq!(app.payments.latest_for_order(order_id).unwrap().status, PaymentStatus::Paid);
+}
+
+#[tokio::test]
 async fn refunding_a_payment_that_was_never_paid_is_400_and_vnpay_is_not_called() {
     let app = spawn_app().await;
     let order_id = app.seed_order(150_000).await;

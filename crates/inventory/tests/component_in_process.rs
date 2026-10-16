@@ -161,3 +161,73 @@ async fn suppliers_can_be_created_listed_and_deleted() {
     assert_eq!(deleted.status, 200);
     assert_eq!(app.get("/suppliers").await.body, json!([]));
 }
+
+// ── who may do what ──────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn every_inventory_route_answers_401_without_a_login() {
+    let app = spawn_app().await;
+    let nobody = reqwest::Client::new();
+    let v = app.stocked(5);
+    let write = json!({ "variant_id": v, "amount": 1 });
+
+    for (method, path, body) in [
+        (reqwest::Method::GET, format!("/stock/{v}"), None),
+        (reqwest::Method::POST, "/decrease-stock".to_string(), Some(write.clone())),
+        (reqwest::Method::POST, "/increase-stock".to_string(), Some(write)),
+        (reqwest::Method::POST, "/update-stock".to_string(), Some(json!({ "variant_id": v, "quantity": 99 }))),
+        (reqwest::Method::GET, "/list-all".to_string(), None),
+        (reqwest::Method::GET, "/suppliers".to_string(), None),
+        (reqwest::Method::POST, "/suppliers".to_string(), Some(json!({ "name": "n", "contact": "c", "location": "l" }))),
+        (reqwest::Method::DELETE, format!("/suppliers/{}", Uuid::new_v4()), None),
+        (reqwest::Method::GET, "/stock/low-alerts".to_string(), None),
+    ] {
+        let mut req = nobody.request(method.clone(), format!("{}{path}", app.base));
+        if let Some(body) = body {
+            req = req.json(&body);
+        }
+        assert_eq!(app.reply(req).await.status, 401, "{method} {path}");
+    }
+    assert_eq!(app.repo.quantity(v), Some(5), "nothing changed");
+}
+
+#[tokio::test]
+async fn a_customer_can_see_a_variants_stock_but_not_change_it_or_see_the_back_office() {
+    let app = spawn_app().await;
+    let v = app.stocked(5);
+    let customer = client_as("customer");
+    let call = |method: reqwest::Method, path: String, body: Option<Value>| {
+        let mut req = customer.request(method, format!("{}{path}", app.base));
+        if let Some(body) = body {
+            req = req.json(&body);
+        }
+        app.reply(req)
+    };
+
+    assert_eq!(call(reqwest::Method::GET, format!("/stock/{v}"), None).await.status, 200);
+    for (method, path, body) in [
+        (reqwest::Method::POST, "/decrease-stock".to_string(), Some(json!({ "variant_id": v, "amount": 5 }))),
+        (reqwest::Method::POST, "/increase-stock".to_string(), Some(json!({ "variant_id": v, "amount": 5 }))),
+        (reqwest::Method::POST, "/update-stock".to_string(), Some(json!({ "variant_id": v, "quantity": 999 }))),
+        (reqwest::Method::GET, "/list-all".to_string(), None),
+        (reqwest::Method::GET, "/suppliers".to_string(), None),
+        (reqwest::Method::POST, "/suppliers".to_string(), Some(json!({ "name": "n", "contact": "c", "location": "l" }))),
+        (reqwest::Method::DELETE, format!("/suppliers/{}", Uuid::new_v4()), None),
+        (reqwest::Method::GET, "/stock/low-alerts".to_string(), None),
+    ] {
+        assert_eq!(call(method.clone(), path.clone(), body).await.status, 403, "{method} {path}");
+    }
+    assert_eq!(app.repo.quantity(v), Some(5), "the customer changed nothing");
+}
+
+#[tokio::test]
+async fn admins_can_do_what_staff_can() {
+    let app = spawn_app().await;
+    let v = app.stocked(5);
+    let admin = client_as("admin");
+
+    let req = admin.post(format!("{}/decrease-stock", app.base)).json(&json!({ "variant_id": v, "amount": 2 }));
+
+    assert_eq!(app.reply(req).await.status, 200);
+    assert_eq!(app.repo.quantity(v), Some(3));
+}

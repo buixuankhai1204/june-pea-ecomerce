@@ -19,3 +19,28 @@ impl From<crate::domain::model::User> for UserView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::model::User;
+
+    #[test]
+    fn a_user_view_never_carries_the_password_hash() {
+        let user = User::new("a@example.test".into(), "$argon2id$secret-hash".into());
+
+        let json = serde_json::to_string(&UserView::from(user)).unwrap();
+
+        assert!(!json.contains("argon2"), "{json}");
+        assert!(!json.contains("password"), "{json}");
+    }
+
+    #[test]
+    fn serializing_the_domain_user_leaves_the_hash_out_too() {
+        let user = User::new("a@example.test".into(), "$argon2id$secret-hash".into());
+
+        let json = serde_json::to_string(&user).unwrap();
+
+        assert!(!json.contains("argon2"), "{json}");
+    }
+}

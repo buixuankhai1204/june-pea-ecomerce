@@ -142,3 +142,88 @@ async fn a_refund_while_vnpay_is_down_is_a_502_and_the_payment_stays_paid() {
     assert_eq!(res.status(), 502);
     assert_eq!(gateway.payment_status(&admin_token, &order_id).await, "Paid");
 }
+
+// ── who may reach what ───────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires Docker (or TEST_DATABASE_URL and TEST_REDIS_URL)"]
+async fn the_catalog_is_open_to_read_but_only_staff_can_change_it() {
+    let gateway = Gateway::start().await;
+    let (_, customer_token) = gateway.user("customer").await;
+    let (_, staff_token) = gateway.user("staff").await;
+    let body = json!({ "name": "Hats", "slug": "hats" });
+    let create = |token: Option<&str>| {
+        let req = gateway.http.post(gateway.url("/catalog/categories")).json(&body);
+        match token {
+            Some(t) => req.bearer_auth(t),
+            None => req,
+        }
+    };
+
+    let (read, _) = gateway.json(gateway.http.get(gateway.url("/catalog/categories"))).await;
+    let (anonymous, _) = gateway.json(create(None)).await;
+    let (customer, _) = gateway.json(create(Some(&customer_token))).await;
+    let (bad_token, _) = gateway.json(create(Some("not-a-jwt"))).await;
+    let (staff, _) = gateway.json(create(Some(&staff_token))).await;
+
+    assert_eq!((read, anonymous, customer, bad_token, staff), (200, 401, 403, 401, 200));
+}
+
+#[tokio::test]
+#[ignore = "requires Docker (or TEST_DATABASE_URL and TEST_REDIS_URL)"]
+async fn user_administration_is_not_reachable_without_an_admin_login() {
+    let gateway = Gateway::start().await;
+    let (_, customer_token) = gateway.user("customer").await;
+    let (_, staff_token) = gateway.user("staff").await;
+    let (_, admin_token) = gateway.user("admin").await;
+
+    // the public /auth mount only has register and login
+    for path in ["/auth/users", "/auth/staff", "/auth/memberships", "/auth/me"] {
+        let (status, _) = gateway.json(gateway.http.get(gateway.url(path))).await;
+        assert_eq!(status, 404, "GET {path}");
+    }
+    let users = gateway.url("/identity/users");
+    let (anonymous, _) = gateway.json(gateway.http.get(&users)).await;
+    let (as_customer, _) = gateway.json(gateway.http.get(&users).bearer_auth(&customer_token)).await;
+    let (as_staff, _) = gateway.json(gateway.http.get(&users).bearer_auth(&staff_token)).await;
+    let (as_admin, list) = gateway.json(gateway.http.get(&users).bearer_auth(&admin_token)).await;
+
+    assert_eq!((anonymous, as_customer, as_staff, as_admin), (401, 403, 403, 200));
+    assert!(list.as_array().unwrap().len() >= 3);
+    assert!(!list.to_string().contains("argon2"), "the user list leaked a password hash: {list}");
+    assert!(!list.to_string().contains("password"), "{list}");
+}
+
+#[tokio::test]
+#[ignore = "requires Docker (or TEST_DATABASE_URL and TEST_REDIS_URL)"]
+async fn a_customer_cannot_reach_other_customers_orders_or_the_staff_routes() {
+    let gateway = Gateway::start().await;
+    let (alice, alice_token) = gateway.user("customer").await;
+    let (bob, bob_token) = gateway.user("customer").await;
+    let (_, staff_token) = gateway.user("staff").await;
+    let order_id = gateway.place_order(&alice_token, alice).await;
+    let order = gateway.url(&format!("/ordering/orders/{order_id}"));
+
+    // bob cannot read, cancel or list alice's orders, and cannot order in her name
+    let (read, _) = gateway.json(gateway.http.get(&order).bearer_auth(&bob_token)).await;
+    let (cancel, _) = gateway.json(gateway.http.delete(&order).bearer_auth(&bob_token)).await;
+    let (list, _) = gateway.json(gateway.http.get(gateway.url(&format!("/ordering/orders/customer/{alice}"))).bearer_auth(&bob_token)).await;
+    let (forged, _) = gateway
+        .json(gateway.http.post(gateway.url("/ordering/orders")).bearer_auth(&bob_token).json(&json!({
+            "customer_id": alice,
+            "items": [{ "variant_id": SEEDED_VARIANT, "quantity": 1, "unit_price": SEEDED_VARIANT_PRICE }]
+        })))
+        .await;
+    assert_eq!((read, cancel, list, forged), (403, 403, 403, 403));
+
+    // nor the staff routes, whose answers are 403 for him and 200 for staff
+    let (all_as_bob, _) = gateway.json(gateway.http.get(gateway.url("/ordering/orders")).bearer_auth(&bob_token)).await;
+    let (all_as_staff, _) = gateway.json(gateway.http.get(gateway.url("/ordering/orders")).bearer_auth(&staff_token)).await;
+    let (stock_as_bob, _) = gateway.json(gateway.http.get(gateway.url("/inventory/list-all")).bearer_auth(&bob_token)).await;
+    let (dashboard_as_bob, _) = gateway.json(gateway.http.get(gateway.url("/analytics/dashboard-summary")).bearer_auth(&bob_token)).await;
+    assert_eq!((all_as_bob, all_as_staff, stock_as_bob, dashboard_as_bob), (403, 200, 403, 403));
+
+    // and alice's order is untouched, still hers to read
+    assert_eq!(gateway.order_status(&alice_token, &order_id).await, "Pending");
+    let _ = bob;
+}
