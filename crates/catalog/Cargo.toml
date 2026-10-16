@@ -19,3 +19,6 @@ chrono = { workspace = true }
 rust_decimal = { workspace = true }
 async-recursion = "1.1"
 image = "0.24.9"
+
+[dev-dependencies]
+reqwest = { workspace = true }

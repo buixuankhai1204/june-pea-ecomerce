@@ -199,3 +199,157 @@ async fn recent_orders_are_newest_first_and_limited() {
     let got: Vec<_> = recent.body.as_array().unwrap().iter().map(|o| o["id"].as_str().unwrap().to_string()).collect();
     assert_eq!(got, vec![ids[2].to_string(), ids[1].to_string()]);
 }
+
+// ── who may do what ──────────────────────────────────────────────────────────────────────
+
+impl TestApp {
+    async fn as_user(&self, http: &reqwest::Client, method: reqwest::Method, path: &str, body: Option<Value>) -> Reply {
+        let mut req = http.request(method, format!("{}{path}", self.base));
+        if let Some(body) = body {
+            req = req.json(&body);
+        }
+        self.send(req).await
+    }
+
+    async fn status_of(&self, id: Uuid) -> Value {
+        self.get(&format!("/orders/{id}")).await.body["status"].clone()
+    }
+}
+
+#[tokio::test]
+async fn every_ordering_route_answers_401_without_a_login() {
+    let app = spawn_app().await;
+    let nobody = reqwest::Client::new();
+    let id = Uuid::new_v4();
+    let item = json!({ "customer_id": null, "items": shirt(1, 1_000) });
+
+    for (method, path, body) in [
+        (reqwest::Method::POST, "/orders".to_string(), Some(item)),
+        (reqwest::Method::GET, "/orders".to_string(), None),
+        (reqwest::Method::GET, format!("/orders/{id}"), None),
+        (reqwest::Method::DELETE, format!("/orders/{id}"), None),
+        (reqwest::Method::PATCH, format!("/orders/{id}/status"), Some(json!({ "status": "Completed" }))),
+        (reqwest::Method::PATCH, format!("/orders/{id}/note"), Some(json!({ "note": "x" }))),
+        (reqwest::Method::GET, format!("/orders/customer/{id}"), None),
+        (reqwest::Method::GET, format!("/orders/customer/{id}/recent"), None),
+    ] {
+        let r = app.as_user(&nobody, method.clone(), &path, body).await;
+        assert_eq!(r.status, 401, "{method} {path}");
+    }
+    assert_eq!(app.get("/orders").await.body, json!([]), "nothing was stored");
+}
+
+#[tokio::test]
+async fn a_customer_always_orders_for_themself() {
+    let app = spawn_app().await;
+    let (me, someone_else) = (Uuid::new_v4(), Uuid::new_v4());
+    let customer = client_as("customer", me);
+
+    // no customer_id: the order is theirs, not a guest's
+    let own = app
+        .as_user(&customer, reqwest::Method::POST, "/orders", Some(json!({ "items": shirt(1, 1_000) })))
+        .await;
+    assert_eq!(own.status, 200, "{}", own.body);
+    let own_id: Uuid = own.body["order_id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(app.get(&format!("/orders/{own_id}")).await.body["customer_id"], me.to_string());
+
+    // someone else's id: refused, and nothing is stored
+    let forged = app
+        .as_user(&customer, reqwest::Method::POST, "/orders", Some(json!({ "customer_id": someone_else, "items": shirt(1, 1_000) })))
+        .await;
+    assert_eq!(forged.status, 403);
+    assert_eq!(app.get("/orders").await.body.as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn staff_can_place_an_order_for_any_customer_or_for_a_guest() {
+    let app = spawn_app().await;
+    let customer = Uuid::new_v4();
+    let staff = client_as("staff", Uuid::new_v4());
+
+    let for_customer = app
+        .as_user(&staff, reqwest::Method::POST, "/orders", Some(json!({ "customer_id": customer, "items": shirt(1, 1_000) })))
+        .await;
+    let for_guest = app.as_user(&staff, reqwest::Method::POST, "/orders", Some(json!({ "items": shirt(1, 1_000) }))).await;
+
+    assert_eq!((for_customer.status, for_guest.status), (200, 200));
+    let id: Uuid = for_customer.body["order_id"].as_str().unwrap().parse().unwrap();
+    let guest: Uuid = for_guest.body["order_id"].as_str().unwrap().parse().unwrap();
+    assert_eq!(app.get(&format!("/orders/{id}")).await.body["customer_id"], customer.to_string());
+    assert_eq!(app.get(&format!("/orders/{guest}")).await.body["customer_id"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_customer_can_read_and_cancel_their_own_order_but_not_anyone_elses() {
+    let app = spawn_app().await;
+    let (me, other) = (Uuid::new_v4(), Uuid::new_v4());
+    let (mine, theirs, guests) = (app.place_ok(Some(me)).await, app.place_ok(Some(other)).await, app.place_ok(None).await);
+    let customer = client_as("customer", me);
+
+    assert_eq!(app.as_user(&customer, reqwest::Method::GET, &format!("/orders/{mine}"), None).await.status, 200);
+    for foreign in [theirs, guests] {
+        let read = app.as_user(&customer, reqwest::Method::GET, &format!("/orders/{foreign}"), None).await;
+        let cancel = app.as_user(&customer, reqwest::Method::DELETE, &format!("/orders/{foreign}"), None).await;
+        assert_eq!((read.status, cancel.status), (403, 403), "order {foreign}");
+        assert_eq!(app.status_of(foreign).await, "Pending", "the cancel did not go through");
+    }
+
+    let cancel_own = app.as_user(&customer, reqwest::Method::DELETE, &format!("/orders/{mine}"), None).await;
+    assert_eq!(cancel_own.status, 200);
+    assert_eq!(app.status_of(mine).await, "Cancelled");
+}
+
+#[tokio::test]
+async fn a_customer_cannot_list_another_customers_orders() {
+    let app = spawn_app().await;
+    let (me, other) = (Uuid::new_v4(), Uuid::new_v4());
+    app.place_ok(Some(me)).await;
+    app.place_ok(Some(other)).await;
+    let customer = client_as("customer", me);
+
+    let own = app.as_user(&customer, reqwest::Method::GET, &format!("/orders/customer/{me}"), None).await;
+    let own_recent = app.as_user(&customer, reqwest::Method::GET, &format!("/orders/customer/{me}/recent"), None).await;
+    let foreign = app.as_user(&customer, reqwest::Method::GET, &format!("/orders/customer/{other}"), None).await;
+    let foreign_recent = app.as_user(&customer, reqwest::Method::GET, &format!("/orders/customer/{other}/recent"), None).await;
+
+    assert_eq!((own.status, own_recent.status), (200, 200));
+    assert_eq!(own.body.as_array().unwrap().len(), 1);
+    assert_eq!((foreign.status, foreign_recent.status), (403, 403));
+}
+
+#[tokio::test]
+async fn a_customer_cannot_list_all_orders_or_change_status_or_notes() {
+    let app = spawn_app().await;
+    let me = Uuid::new_v4();
+    let id = app.place_ok(Some(me)).await;
+    let customer = client_as("customer", me);
+
+    let all = app.as_user(&customer, reqwest::Method::GET, "/orders", None).await;
+    let status = app
+        .as_user(&customer, reqwest::Method::PATCH, &format!("/orders/{id}/status"), Some(json!({ "status": "Completed" })))
+        .await;
+    let note = app
+        .as_user(&customer, reqwest::Method::PATCH, &format!("/orders/{id}/note"), Some(json!({ "note": "mine" })))
+        .await;
+
+    assert_eq!((all.status, status.status, note.status), (403, 403, 403));
+    assert_eq!(app.status_of(id).await, "Pending", "an order can't be marked paid by its buyer");
+    assert_eq!(app.get(&format!("/orders/{id}")).await.body["note"], Value::Null);
+}
+
+#[tokio::test]
+async fn staff_can_read_cancel_and_manage_any_order() {
+    let app = spawn_app().await;
+    let id = app.place_ok(Some(Uuid::new_v4())).await;
+    let staff = client_as("staff", Uuid::new_v4());
+
+    let read = app.as_user(&staff, reqwest::Method::GET, &format!("/orders/{id}"), None).await;
+    let all = app.as_user(&staff, reqwest::Method::GET, "/orders", None).await;
+    let note = app
+        .as_user(&staff, reqwest::Method::PATCH, &format!("/orders/{id}/note"), Some(json!({ "note": "packed" })))
+        .await;
+    let cancel = app.as_user(&staff, reqwest::Method::DELETE, &format!("/orders/{id}"), None).await;
+
+    assert_eq!((read.status, all.status, note.status, cancel.status), (200, 200, 200, 200));
+    assert_eq!(app.status_of(id).await, "Cancelled");
+}
