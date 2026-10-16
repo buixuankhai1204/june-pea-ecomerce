@@ -5,6 +5,8 @@ use uuid::Uuid;
 pub struct User {
     pub id: Uuid,
     pub email: String,
+    /// Never serialized: nothing that leaves the process may carry it.
+    #[serde(skip_serializing)]
     pub password_hash: String,
     pub role: String,
 }

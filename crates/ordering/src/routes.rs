@@ -2,6 +2,7 @@ use axum::extract::{Path, State, Query};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use shared::auth::{AuthUser, Staff};
 use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -124,26 +125,40 @@ struct UpdateOrderStatusRequest {
 
 async fn place_order_handler(
     State(state): State<OrderingUsecase>,
+    AuthUser(claims): AuthUser,
     Json(body): Json<PlaceOrderRequest>,
 ) -> Result<Json<PlaceOrderResponse>, AppError> {
+    // A customer orders for themself, whatever the body says; staff may enter an order for
+    // any customer, or for a guest by leaving `customer_id` out.
+    let customer_id = if claims.is_staff() {
+        body.customer_id
+    } else {
+        claims.ensure_owner_or_staff(body.customer_id.or(Some(claims.sub)))?;
+        Some(claims.sub)
+    };
     let usecase = state.place_order();
-    let order_id = usecase.execute(body.customer_id, body.items).await?;
+    let order_id = usecase.execute(customer_id, body.items).await?;
     Ok(Json(PlaceOrderResponse { order_id }))
 }
 
 async fn get_order_handler(
     State(state): State<OrderingUsecase>,
+    AuthUser(claims): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Order>, AppError> {
     let usecase = state.get_order();
     let order = usecase.execute(id).await?;
+    claims.ensure_owner_or_staff(order.customer_id)?;
     Ok(Json(order))
 }
 
 async fn cancel_order_handler(
     State(state): State<OrderingUsecase>,
+    AuthUser(claims): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
+    let order = state.get_order().execute(id).await?;
+    claims.ensure_owner_or_staff(order.customer_id)?;
     let usecase = state.cancel_order();
     usecase.execute(id).await?;
     Ok(Json(true))
@@ -151,8 +166,10 @@ async fn cancel_order_handler(
 
 async fn list_orders_handler(
     State(state): State<OrderingUsecase>,
+    AuthUser(claims): AuthUser,
     Path(customer_id): Path<Uuid>,
 ) -> Result<Json<Vec<Order>>, AppError> {
+    claims.ensure_owner_or_staff(Some(customer_id))?;
     let usecase = state.list_orders();
     let orders = usecase.execute(customer_id).await?;
     Ok(Json(orders))
@@ -160,6 +177,7 @@ async fn list_orders_handler(
 
 async fn list_all_orders_handler(
     State(state): State<OrderingUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<Order>>, AppError> {
     let usecase = state.list_all_orders();
     let orders = usecase.execute().await?;
@@ -173,6 +191,7 @@ pub struct UpdateNoteRequest {
 
 async fn update_note_handler(
     State(state): State<OrderingUsecase>,
+    Staff(_): Staff,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(payload): Json<UpdateNoteRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
@@ -188,9 +207,11 @@ pub struct ListRecentOrdersQuery {
 
 async fn list_recent_orders_handler(
     State(state): State<OrderingUsecase>,
+    AuthUser(claims): AuthUser,
     axum::extract::Path(customer_id): axum::extract::Path<Uuid>,
     Query(query): Query<ListRecentOrdersQuery>,
 ) -> Result<Json<Vec<Order>>, AppError> {
+    claims.ensure_owner_or_staff(Some(customer_id))?;
     let usecase = state.list_recent_orders();
     let limit = query.limit.unwrap_or(5);
     let orders = usecase.execute(customer_id, limit).await?;
@@ -199,6 +220,7 @@ async fn list_recent_orders_handler(
 
 async fn update_order_status_handler(
     State(state): State<OrderingUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateOrderStatusRequest>,
 ) -> Result<Json<bool>, AppError> {

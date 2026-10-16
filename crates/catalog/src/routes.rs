@@ -15,6 +15,7 @@ use axum::extract::{Path, Query, State, Multipart};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
+use shared::auth::Staff;
 use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -204,6 +205,7 @@ pub fn init() -> Router<CatalogUsecase> {
 
 async fn upload_product_image_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<String>, AppError> {
@@ -281,6 +283,7 @@ async fn get_category_tree_handler(
 
 async fn create_category_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Json(body): Json<CreateCategoryRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.create_category_usecase();
@@ -292,6 +295,7 @@ async fn create_category_handler(
 
 async fn create_product_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Json(body): Json<CreateProductRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.create_product_usecase();
@@ -303,6 +307,7 @@ async fn create_product_handler(
 
 async fn update_product_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateProductRequest>,
 ) -> Result<Json<bool>, AppError> {
@@ -315,6 +320,7 @@ async fn update_product_handler(
 
 async fn delete_product_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_product_usecase();
@@ -324,6 +330,7 @@ async fn delete_product_handler(
 
 async fn delete_category_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_category_usecase();
@@ -333,6 +340,7 @@ async fn delete_category_handler(
 
 async fn create_variant_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Json(body): Json<CreateVariantRequest>,
 ) -> Result<Json<Uuid>, AppError> {
     let usecase = state.create_variant_usecase();
@@ -351,6 +359,7 @@ async fn create_variant_handler(
 
 async fn update_variant_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateVariantRequest>,
 ) -> Result<Json<bool>, AppError> {
@@ -370,6 +379,7 @@ async fn update_variant_handler(
 
 async fn delete_variant_handler(
     State(state): State<CatalogUsecase>,
+    Staff(_): Staff,
     Path(id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_variant_usecase();

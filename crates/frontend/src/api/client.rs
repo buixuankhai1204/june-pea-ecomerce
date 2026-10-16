@@ -153,15 +153,15 @@ pub mod identity {
     }
 
     pub async fn get_me() -> Result<User, ApiError> {
-        get("/api/v1/auth/me").await
+        get("/api/v1/identity/me").await
     }
 
     pub async fn update_profile(req: UpdateProfileRequest) -> Result<User, ApiError> {
-        patch("/api/v1/auth/profile", &req).await
+        patch("/api/v1/identity/me", &req).await
     }
 
     pub async fn list_users() -> Result<Vec<User>, ApiError> {
-        get("/api/v1/auth/users").await
+        get("/api/v1/identity/users").await
     }
 
     pub async fn list_staff() -> Result<Vec<StaffMember>, ApiError> {
@@ -176,11 +176,11 @@ pub mod identity {
     }
 
     pub async fn change_password(req: ChangePasswordRequest) -> Result<bool, ApiError> {
-        post("/api/v1/auth/change-password", &req).await
+        post("/api/v1/identity/me/password", &req).await
     }
 
     pub async fn delete_user(id: Uuid) -> Result<bool, ApiError> {
-        delete(&format!("/api/v1/auth/users/{}", id)).await
+        delete(&format!("/api/v1/identity/users/{}", id)).await
     }
 }
 
@@ -416,11 +416,11 @@ pub mod memberships {
     use super::*;
 
     pub async fn list_memberships() -> Result<Vec<Membership>, ApiError> {
-        get("/api/v1/auth/memberships").await
+        get("/api/v1/identity/memberships").await
     }
 
     pub async fn get_membership_summary() -> Result<MembershipSummary, ApiError> {
-        get("/api/v1/auth/memberships/summary").await
+        get("/api/v1/identity/memberships/summary").await
     }
 }
 

@@ -5,7 +5,7 @@ use catalog::infrastructure::persistence::postgres::PostgresCatalogRepository;
 use catalog::routes::CatalogUsecase;
 use dotenv::dotenv;
 use identify::infrastructure::persistence::postgres::PostgresUserRepository;
-use identify::routes::{init, IdentityState};
+use identify::routes::IdentityState;
 use identify::usecase::auth::AuthUsecase;
 use inventory::routes::InventoryUsecase;
 use payment::config::PaymentConfig;
@@ -102,11 +102,14 @@ async fn main() -> anyhow::Result<()> {
         .finish();
 
     subscriber.init();
+    // tokens are signed with this: refuse to start rather than fall back to a known key
+    shared::auth::check_jwt_secret().map_err(|e| anyhow::anyhow!(e))?;
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    print!("Connecting to database at {}... ", db_url);
+    // the URLs carry passwords, so they are never logged
+    tracing::info!("Connecting to database...");
     let pool = PgPool::connect(&db_url).await?;
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://".to_string());
-    print!("Connecting to Redis at {}... ", redis_url);
+    tracing::info!("Connecting to Redis...");
 
     let user_repo = Arc::new(PostgresUserRepository::new(Arc::new(pool.clone())));
     let catalog_repo = Arc::new(PostgresCatalogRepository::new(Arc::new(pool.clone())));
@@ -301,14 +304,22 @@ async fn main() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("Migration failed: {}", e))?;
 
-    // Public routes (no auth required)
+    // Public routes (no auth required). Only register and login are public identity routes:
+    // the rest of identity (users, staff, memberships) is mounted below behind auth.
     let public_routes = Router::new()
-        .nest("/api/v1/auth", init())
-        .nest("/api/v1/catalog", catalog_router)
+        .nest("/api/v1/auth", identify::routes::init_public::<AppState>())
         .nest("/api/v1/payment", payment_ipn_router)
         .nest("/api/v1/marketing", marketing_public_router);
 
-    // Protected routes (auth required)
+    // Catalog: anyone may browse, only staff may change it. A token is read when sent but not
+    // required; the write handlers insist on `Staff` themselves.
+    let catalog_routes = Router::new()
+        .nest("/api/v1/catalog", catalog_router)
+        .layer(axum::middleware::from_fn(
+            middleware::auth::optional_auth_middleware,
+        ));
+
+    // Protected routes (auth required). Each handler also checks the role it needs.
     let protected_routes = Router::new()
         .nest("/api/v1/inventory", inventory_router)
         .nest("/api/v1/marketing", marketing_router)
@@ -320,6 +331,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .merge(public_routes)
+        .merge(catalog_routes)
         .merge(protected_routes)
         .fallback_service(
             tower_http::services::ServeDir::new("dist")

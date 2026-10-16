@@ -6,13 +6,12 @@ use crate::usecase::{
     refund_payment::RefundPaymentUsecase,
 };
 use axum::extract::{Path, RawQuery, State};
-use axum::Extension;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_qs::from_str;
-use shared::auth::UserClaims;
+use shared::auth::{Admin, AuthUser};
 use shared::AppError;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -77,6 +76,7 @@ struct CreateVnPayQrRequest {
 
 async fn create_vnpay_qr_handler(
     State(state): State<PaymentUsecase>,
+    AuthUser(_): AuthUser,
     Json(payload): Json<CreateVnPayQrRequest>,
 ) -> Result<Json<PaymentIntentView>, AppError> {
     let usecase = state.create_vnpay_qr();
@@ -86,6 +86,7 @@ async fn create_vnpay_qr_handler(
 
 async fn get_payment_status_handler(
     State(state): State<PaymentUsecase>,
+    AuthUser(_): AuthUser,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<PaymentIntentView>, AppError> {
     let usecase = state.get_payment_status();
@@ -127,16 +128,13 @@ async fn vnpay_ipn_handler(
     }
 }
 
-/// Moves real money back to the customer, so staff only. The auth middleware has put the
-/// caller's claims in the request by the time we get here.
+/// Moves real money back to the customer, so admins only. The `Admin` extractor answers 401
+/// without a login and 403 for anyone who isn't an admin.
 async fn refund_payment_handler(
     State(state): State<PaymentUsecase>,
-    Extension(claims): Extension<UserClaims>,
+    Admin(claims): Admin,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
-    if claims.role != "admin" {
-        return Err(AppError::Forbidden("Only admins can refund payments".into()));
-    }
     let usecase = state.refund_payment();
     usecase.execute(order_id, &claims.sub.to_string()).await?;
     Ok(Json(true))

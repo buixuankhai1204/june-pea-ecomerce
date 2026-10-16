@@ -13,6 +13,7 @@ use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
+use shared::auth::{AuthUser, Staff};
 use shared::database::UnitOfWork;
 use shared::AppError;
 use std::sync::Arc;
@@ -117,6 +118,7 @@ pub fn init() -> Router<InventoryUsecase> {
 
 async fn decrease_stock_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     Json(body): Json<StockRequest>,
 ) -> Result<Json<bool>, AppError> {
     if body.amount <= 0 {
@@ -129,6 +131,7 @@ async fn decrease_stock_handler(
 
 async fn increase_stock_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     Json(body): Json<StockRequest>,
 ) -> Result<Json<bool>, AppError> {
     if body.amount <= 0 {
@@ -141,6 +144,7 @@ async fn increase_stock_handler(
 
 async fn update_stock_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     Json(body): Json<UpdateStockRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.update_stock_usecase();
@@ -150,6 +154,7 @@ async fn update_stock_handler(
 
 async fn get_stock_handler(
     State(state): State<InventoryUsecase>,
+    AuthUser(_): AuthUser,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
 ) -> Result<Json<i32>, AppError> {
     let usecase = state.get_stock_usecase();
@@ -159,6 +164,7 @@ async fn get_stock_handler(
 
 async fn list_all_stocks_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<Stock>>, AppError> {
     let usecase = state.list_all_stocks_usecase();
     let stocks = usecase.execute().await?;
@@ -167,6 +173,7 @@ async fn list_all_stocks_handler(
 
 async fn list_suppliers_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<Supplier>>, AppError> {
     let usecase = state.list_suppliers_usecase();
     let suppliers = usecase.execute().await?;
@@ -175,6 +182,7 @@ async fn list_suppliers_handler(
 
 async fn create_supplier_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     Json(body): Json<CreateSupplierRequest>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.create_supplier_usecase();
@@ -184,6 +192,7 @@ async fn create_supplier_handler(
 
 async fn delete_supplier_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
 ) -> Result<Json<bool>, AppError> {
     let usecase = state.delete_supplier_usecase();
@@ -193,6 +202,7 @@ async fn delete_supplier_handler(
 
 async fn check_low_stock_handler(
     State(state): State<InventoryUsecase>,
+    Staff(_): Staff,
     axum::extract::Query(query): axum::extract::Query<CheckLowStockQuery>,
 ) -> Result<Json<Vec<Stock>>, AppError> {
     let usecase = state.check_low_stock_alerts_usecase();

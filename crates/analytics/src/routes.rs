@@ -7,6 +7,7 @@ use crate::usecase::{
     export_order_report::ExportOrderReportUsecase,
 };
 use axum::{extract::State, routing::get, Json, Router};
+use shared::auth::Staff;
 use shared::error::AppError;
 use std::sync::Arc;
 use sqlx::PgPool;
@@ -46,36 +47,42 @@ pub fn init() -> Router<AnalyticsUsecase> {
 
 async fn get_dashboard_summary_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<crate::domain::model::DashboardSummary>, AppError> {
     Ok(Json(state.dashboard_summary.execute().await?))
 }
 
 async fn get_revenue_analytics_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<crate::domain::model::RevenuePoint>>, AppError> {
     Ok(Json(state.revenue_analytics.execute().await?))
 }
 
 async fn get_low_stock_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<crate::domain::model::LowStockItem>>, AppError> {
     Ok(Json(state.low_stock_items.execute().await?))
 }
 
 async fn get_category_breakdown_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<crate::domain::model::CategoryBreakdown>>, AppError> {
     Ok(Json(state.category_breakdown.execute().await?))
 }
 
 async fn get_recent_invoices_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<Json<Vec<crate::usecase::recent_invoices::Invoice>>, AppError> {
     Ok(Json(state.recent_invoices.execute().await?))
 }
 
 async fn export_orders_handler(
     State(state): State<AnalyticsUsecase>,
+    Staff(_): Staff,
 ) -> Result<axum::response::Response, AppError> {
     let csv = state.export_order_report.execute().await?;
     Ok(axum::response::Response::builder()
